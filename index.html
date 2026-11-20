@@ -15,7 +15,6 @@
     flex-direction: column;
     height: 100vh;
   }
-  /* Top HUD */
   #topbar {
     height: 54px;
     border-bottom: 1.5px solid #e5e7eb;
@@ -69,7 +68,6 @@
     border-color: #dc2626;
   }
 
-  /* Canvas Area */
   #arena-wrap {
     flex: 1;
     position: relative;
@@ -81,6 +79,7 @@
     width: 100%;
     height: 100%;
     cursor: crosshair;
+    touch-action: none;
   }
   #winner-banner {
     position: absolute;
@@ -98,7 +97,6 @@
     pointer-events: none;
   }
 
-  /* Bottom Toolbar */
   #dock {
     border-top: 1.5px solid #e5e7eb;
     background: #fafafa;
@@ -208,7 +206,6 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-// Unit & Terrain Catalog
 const CATALOG = {
   army: [
     { id: 'soldier', name: 'Soldier', icon: '🗡️', hp: 100, dmg: 14, range: 22, speed: 1.45, cd: 38, size: 12, spacing: 26 },
@@ -266,7 +263,6 @@ let projectiles = [];
 let particles = [];
 let running = false;
 let animTick = 0;
-// Render Category Palette
 function renderPalette() {
 paletteEl.innerHTML = '';
 CATALOG[currentCat].forEach(item => {
@@ -290,13 +286,12 @@ renderPalette();
 };
 });
 renderPalette();
-// Drawing / Placement with Split-Side Center Line
 let isDrawing = false;
 let lastPlacePos = null;
 function getCoords(e) {
 const rect = canvas.getBoundingClientRect();
-const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+const clientX = (e.touches && e.touches.length) ? e.touches[0].clientX : e.clientX;
+const clientY = (e.touches && e.touches.length) ? e.touches[0].clientY : e.clientY;
 return { x: clientX - rect.left, y: clientY - rect.top };
 }
 function trySpawn(x, y) {
@@ -313,7 +308,6 @@ burning: 0,
 carriedBy: null
 });
 } else {
-// Left of center line = blue, Right of center line = red
 const team = x < W / 2 ? 'blue' : 'red';
 units.push({
 ...selectedItem,
@@ -382,7 +376,6 @@ else if (blue > 0) winnerBanner.textContent = '🔵 Blue Team Wins!';
 else winnerBanner.textContent = '🔴 Red Team Wins!';
 }
 }
-// Explosion & Particle Helpers
 function spawnParticles(x, y, color, count, speed = 3, life = 24) {
 for (let i = 0; i < count; i++) {
 const a = Math.random() * Math.PI * 2;
@@ -421,10 +414,8 @@ if (t.explosive && d > 2) { t.hp = 0; setTimeout(() => explode(t.x, t.y, 95, 120
 }
 });
 }
-// Simulation Step
 function step() {
 animTick++;
-// Update Particles
 for (let i = particles.length - 1; i >= 0; i--) {
 const p = particles[i];
 p.x += p.vx;
@@ -435,14 +426,12 @@ p.life--;
 if (p.life <= 0) particles.splice(i, 1);
 }
 if (!running) return;
-// Terrain updates (burning trees, hazards)
 for (let i = terrains.length - 1; i >= 0; i--) {
 const t = terrains[i];
 if (t.burning > 0) {
 t.burning--;
 t.hp -= 0.35;
 if (Math.random() < 0.35) spawnParticles(t.x + (Math.random() - 0.5) * 14, t.y - 6, '#f97316', 1, 1.2, 18);
-// Spread fire to nearby trees/units
 terrains.forEach(other => {
 if (other !== t && other.flammable && other.burning <= 0 && Math.hypot(other.x - t.x, other.y - t.y) < 42) {
 if (Math.random() < 0.02) other.burning = 180;
@@ -454,7 +443,6 @@ if (Math.hypot(u.x - t.x, u.y - t.y) < 26) u.burning = Math.max(u.burning, 60);
 }
 if (t.hp <= 0) terrains.splice(i, 1);
 }
-// Projectiles
 for (let i = projectiles.length - 1; i >= 0; i--) {
 const pr = projectiles[i];
 pr.x += pr.vx;
@@ -493,7 +481,6 @@ if (pr.aoe && !hit) explode(pr.x, pr.y, pr.aoe, pr.dmg);
 projectiles.splice(i, 1);
 }
 }
-// Units AI & Physics
 for (let i = 0; i < units.length; i++) {
 const u = units[i];
 if (u.cooldown > 0) u.cooldown--;
@@ -503,7 +490,6 @@ u.burning--;
 u.hp -= 0.22;
 if (Math.random() < 0.25) spawnParticles(u.x, u.y - 4, '#f97316', 1, 1, 14);
 }
-// Terrain interactions
 let speedMult = 1;
 for (const t of terrains) {
 const dist = Math.hypot(u.x - t.x, u.y - t.y);
@@ -528,7 +514,6 @@ explode(t.x, t.y, 70, 95);
 }
 }
 }
-// Find target (enemy, or wounded ally for Medic)
 let target = null;
 let bestDist = Infinity;
 if (u.healer) {
@@ -547,7 +532,6 @@ if (d < bestDist) { bestDist = d; target = other; }
 }
 }
 }
-// Unit-to-unit separation
 for (let j = i + 1; j < units.length; j++) {
 const o = units[j];
 if (!!u.flying !== !!o.flying) continue;
@@ -623,7 +607,6 @@ vx: 0, vy: 0, maxHp: skel.hp, cooldown: 20, phase: 0, attackAnim: 0, facing: u.f
 });
 }
 } else {
-// Melee attack + Gorillas/Giants throwing nearby barrels
 if (u.thrower) {
 const barrel = terrains.find(t => t.explosive && Math.hypot(t.x - u.x, t.y - u.y) < 38);
 if (barrel) {
@@ -651,7 +634,6 @@ u.vy *= 0.78;
 u.x = Math.max(u.size, Math.min(W - u.size, u.x));
 u.y = Math.max(u.size, Math.min(H - u.size, u.y));
 }
-// Cleanup fallen units
 let died = false;
 for (let i = units.length - 1; i >= 0; i--) {
 const u = units[i];
@@ -669,7 +651,6 @@ died = true;
 }
 if (died) updateCounts();
 }
-// Animated Custom Models Renderer
 function drawUnit(u) {
 const isBlue = u.team === 'blue';
 const mainColor = isBlue ? '#2563eb' : '#dc2626';
@@ -680,7 +661,6 @@ const swing = u.attackAnim > 0 ? Math.sin((u.attackAnim / 12) * Math.PI) * 0.9 :
 const hover = u.flying ? Math.sin(animTick * 0.14 + u.phase) * 4 - 6 : 0;
 ctx.save();
 ctx.translate(u.x, u.y);
-// Ground shadow
 ctx.fillStyle = 'rgba(0,0,0,0.12)';
 ctx.beginPath();
 ctx.ellipse(0, u.size * 0.85, u.size * 0.85, u.size * 0.35, 0, 0, Math.PI * 2);
@@ -688,7 +668,6 @@ ctx.fill();
 ctx.translate(0, hover);
 ctx.scale(u.facing, 1);
 if (u.id === 'tank') {
-// Animated Tank Treads + Turret
 ctx.fillStyle = '#374151';
 ctx.fillRect(-18, 4, 36, 9);
 ctx.fillStyle = '#9ca3af';
@@ -708,29 +687,24 @@ ctx.fill();
 ctx.fillStyle = '#1f2937';
 ctx.fillRect(8, -12, 16 - swing * 3, 4);
 } else if (['boar','lion','bear','elephant','wolf','rhino','croc','tiger'].includes(u.id)) {
-// Quadruped Animated Animal Model
 const s = u.size;
 ctx.strokeStyle = darkColor;
 ctx.lineWidth = Math.max(2.5, s * 0.22);
 ctx.lineCap = 'round';
-// Animated 4 legs
 [[-s0.55, walk], [-s0.25, -walk], [s0.25, -walk], [s0.55, walk]].forEach(([lx, off]) => {
 ctx.beginPath();
 ctx.moveTo(lx, 2);
 ctx.lineTo(lx + off, s * 0.78);
 ctx.stroke();
 });
-// Body
 ctx.fillStyle = mainColor;
 ctx.beginPath();
 ctx.ellipse(0, 0, s * 0.9, s * 0.55, 0, 0, Math.PI * 2);
 ctx.fill();
-// Head
 ctx.fillStyle = darkColor;
 ctx.beginPath();
 ctx.arc(s * 0.78, -s * 0.18 + swing * 3, s * 0.44, 0, Math.PI * 2);
 ctx.fill();
-// Tusks / Trunk / Ears detail
 if (u.id === 'elephant' || u.id === 'boar' || u.id === 'rhino') {
 ctx.strokeStyle = '#f9fafb';
 ctx.lineWidth = 2.5;
@@ -739,32 +713,26 @@ ctx.moveTo(s * 1.05, -s * 0.05);
 ctx.lineTo(s * 1.45, -s * 0.28);
 ctx.stroke();
 }
-// Eye
 ctx.fillStyle = '#fff';
 ctx.beginPath();
 ctx.arc(s * 0.9, -s * 0.26, 2, 0, Math.PI * 2);
 ctx.fill();
 } else if (['dragon','eagle','phoenix','griffin'].includes(u.id)) {
-// Winged Flying Creature Model
 const s = u.size;
 const flap = Math.sin(animTick * 0.28 + u.phase) * (s * 0.85);
-// Back wing
 ctx.fillStyle = darkColor;
 ctx.beginPath();
 ctx.moveTo(-2, -2);
 ctx.quadraticCurveTo(-s * 0.6, -s - flap, -s * 1.1, -flap * 0.5);
 ctx.closePath();
 ctx.fill();
-// Body
 ctx.fillStyle = mainColor;
 ctx.beginPath();
 ctx.ellipse(0, 0, s * 0.85, s * 0.45, -0.15, 0, Math.PI * 2);
 ctx.fill();
-// Head
 ctx.beginPath();
 ctx.arc(s * 0.75, -s * 0.35, s * 0.38, 0, Math.PI * 2);
 ctx.fill();
-// Front animated wing
 ctx.fillStyle = lightColor;
 ctx.beginPath();
 ctx.moveTo(0, -1);
@@ -772,7 +740,6 @@ ctx.quadraticCurveTo(-s * 0.3, -s * 1.1 + flap, -s * 0.95, flap * 0.7);
 ctx.closePath();
 ctx.fill();
 } else if (u.id === 'kraken') {
-// Animated Tentacle Kraken
 const s = u.size;
 ctx.strokeStyle = darkColor;
 ctx.lineWidth = 3.2;
@@ -791,10 +758,8 @@ ctx.lineTo(-s * 0.72, 5);
 ctx.closePath();
 ctx.fill();
 } else {
-// Articulated Humanoid / Giant / Golem / Cavalry Model
 const s = u.size;
 if (u.id === 'cavalry') {
-// Mount legs
 ctx.strokeStyle = '#78350f';
 ctx.lineWidth = 2.6;
 [[-8, walk], [8, -walk]].forEach(([lx, off]) => {
@@ -804,23 +769,19 @@ ctx.fillStyle = '#92400e';
 ctx.beginPath(); ctx.ellipse(0, 3, 13, 6, 0, 0, Math.PI * 2); ctx.fill();
 ctx.translate(0, -6);
 }
-// Walking legs
 ctx.strokeStyle = '#1f2937';
 ctx.lineWidth = Math.max(2.2, s * 0.2);
 ctx.lineCap = 'round';
 ctx.beginPath(); ctx.moveTo(-2, s * 0.25); ctx.lineTo(-2 + walk, s * 0.85); ctx.stroke();
 ctx.beginPath(); ctx.moveTo(2, s * 0.25); ctx.lineTo(2 - walk, s * 0.85); ctx.stroke();
-// Torso
 ctx.fillStyle = u.id === 'skeleton' ? '#e5e7eb' : (u.id === 'golem' ? '#6b7280' : mainColor);
 ctx.beginPath();
 ctx.roundRect(-s * 0.45, -s * 0.35, s * 0.9, s * 0.7, 3);
 ctx.fill();
-// Head
 ctx.fillStyle = u.id === 'skeleton' ? '#f9fafb' : (u.id === 'ninja' ? '#111827' : '#fde68a');
 ctx.beginPath();
 ctx.arc(0, -s * 0.65, s * 0.38, 0, Math.PI * 2);
 ctx.fill();
-// Helmet / Hat
 if (['soldier','roman','shield'].includes(u.id)) {
 ctx.fillStyle = darkColor;
 ctx.beginPath();
@@ -835,7 +796,6 @@ ctx.lineTo(0, -s * 1.45);
 ctx.closePath();
 ctx.fill();
 }
-// Swinging Arm & Weapon
 ctx.save();
 ctx.translate(2, -s * 0.15);
 ctx.rotate(swing);
@@ -845,7 +805,6 @@ ctx.beginPath();
 ctx.moveTo(0, 0);
 ctx.lineTo(s * 1.15, -2);
 ctx.stroke();
-// Shield for Roman / Shielder
 if (u.id === 'roman' || u.id === 'shield') {
 ctx.fillStyle = lightColor;
 ctx.strokeStyle = darkColor;
@@ -856,7 +815,6 @@ ctx.strokeRect(s * 0.35, -s * 0.5, 4, s * 0.95);
 ctx.restore();
 }
 ctx.restore();
-// HP Bar (only when damaged)
 if (u.hp < u.maxHp) {
 const bw = Math.max(18, u.size * 1.6);
 ctx.fillStyle = 'rgba(0,0,0,0.25)';
@@ -910,11 +868,10 @@ ctx.restore();
 }
 function render() {
 ctx.clearRect(0, 0, W, H);
-// Center Divider Line (Blue Left / Red Right)
 ctx.save();
 ctx.strokeStyle = running ? 'rgba(209, 213, 219, 0.45)' : '#d1d5db';
 ctx.lineWidth = 2;
-ctx.setLineDash([8, 8]);
+ctx.setLineDash([8, 6]);
 ctx.beginPath();
 ctx.moveTo(W / 2, 0);
 ctx.lineTo(W / 2, H);
@@ -928,19 +885,15 @@ ctx.fillText('← Draw Blue Army Here', W * 0.25, H * 0.5);
 ctx.fillStyle = 'rgba(220, 38, 38, 0.45)';
 ctx.fillText('Draw Red Army Here →', W * 0.75, H * 0.5);
 }
-// Draw ground terrains
 terrains.forEach(drawTerrain);
-// Depth-sort units by Y position
 const sortedUnits = [...units].sort((a, b) => a.y - b.y);
 sortedUnits.forEach(drawUnit);
-// Projectiles
 projectiles.forEach(pr => {
 ctx.fillStyle = pr.color;
 ctx.beginPath();
 ctx.arc(pr.x, pr.y - (pr.z || 0), pr.aoe ? 4.5 : 3, 0, Math.PI * 2);
 ctx.fill();
 });
-// Particles
 particles.forEach(p => {
 ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
 ctx.fillStyle = p.color;
