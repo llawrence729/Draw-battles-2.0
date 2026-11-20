@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>Battle Draw</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #ffffff;
+    color: #1a1a1a;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+  /* Top HUD */
+  #topbar {
+    height: 54px;
+    border-bottom: 1.5px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 18px;
+    background: #fff;
+    z-index: 10;
+  }
+  .title {
+    font-weight: 800;
+    font-size: 19px;
+    letter-spacing: -0.4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .counts {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-weight: 700;
+    font-size: 15px;
+  }
+  .blue-badge { color: #2563eb; background: #eff6ff; padding: 4px 10px; border-radius: 999px; border: 1px solid #bfdbfe; }
+  .red-badge { color: #dc2626; background: #fef2f2; padding: 4px 10px; border-radius: 999px; border: 1px solid #fecaca; }
+  .controls { display: flex; gap: 8px; }
+  button {
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 14px;
+    border: 1.5px solid #d1d5db;
+    background: #fff;
+    color: #111827;
+    padding: 7px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.08s ease, background 0.15s ease;
+  }
+  button:hover { background: #f3f4f6; }
+  button:active { transform: scale(0.96); }
+  #battleBtn {
+    background: #111827;
+    color: #fff;
+    border-color: #111827;
+    min-width: 96px;
+  }
+  #battleBtn.running {
+    background: #dc2626;
+    border-color: #dc2626;
+  }
+
+  /* Canvas Area */
+  #arena-wrap {
+    flex: 1;
+    position: relative;
+    background: #ffffff;
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+  }
+  #winner-banner {
+    position: absolute;
+    top: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #111827;
+    color: #fff;
+    padding: 8px 20px;
+    border-radius: 999px;
+    font-weight: 800;
+    font-size: 15px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.14);
+    display: none;
+    pointer-events: none;
+  }
+
+  /* Bottom Toolbar */
+  #dock {
+    border-top: 1.5px solid #e5e7eb;
+    background: #fafafa;
+    padding: 8px 14px 10px;
+    z-index: 10;
+  }
+  .tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+    justify-content: center;
+  }
+  .tab {
+    padding: 5px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+    border: 1.5px solid transparent;
+    background: transparent;
+    color: #6b7280;
+  }
+  .tab.active {
+    background: #fff;
+    color: #111827;
+    border-color: #d1d5db;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .palette {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    justify-content: flex-start;
+  }
+  @media (min-width: 900px) {
+    .palette { justify-content: center; }
+  }
+  .unit-card {
+    flex: 0 0 auto;
+    min-width: 76px;
+    background: #fff;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 6px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    cursor: pointer;
+    transition: border-color 0.12s, transform 0.08s;
+  }
+  .unit-card:hover { border-color: #9ca3af; }
+  .unit-card.selected {
+    border-color: #111827;
+    background: #f3f4f6;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  }
+  .unit-icon { font-size: 20px; line-height: 1.1; }
+  .unit-name { font-size: 11px; font-weight: 700; color: #374151; white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div class="title">⚔️ Battle Draw</div>
+  <div class="counts">
+    <span class="blue-badge">BLUE: <span id="blueCount">0</span></span>
+    <span class="red-badge">RED: <span id="redCount">0</span></span>
+  </div>
+  <div class="controls">
+    <button id="battleBtn">Battle</button>
+    <button id="clearBtn">Clear</button>
+  </div>
+</div>
+
+<div id="arena-wrap">
+  <canvas id="canvas"></canvas>
+  <div id="winner-banner"></div>
+</div>
+
+<div id="dock">
+  <div class="tabs">
+    <button class="tab active" data-cat="army">Army</button>
+    <button class="tab" data-cat="animals">Animals</button>
+    <button class="tab" data-cat="mythical">Mythical</button>
+    <button class="tab" data-cat="terrain">Terrain</button>
+  </div>
+  <div class="palette" id="palette"></div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const battleBtn = document.getElementById('battleBtn');
+const clearBtn = document.getElementById('clearBtn');
+const blueCountEl = document.getElementById('blueCount');
+const redCountEl = document.getElementById('redCount');
+const winnerBanner = document.getElementById('winner-banner');
+const paletteEl = document.getElementById('palette');
+
+let W = 0, H = 0;
+function resize() {
+  const rect = canvas.parentElement.getBoundingClientRect();
+  W = canvas.width = rect.width;
+  H = canvas.height = rect.height;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// Unit & Terrain Catalog
+const CATALOG = {
+  army: [
+    { id: 'soldier', name: 'Soldier', icon: '🗡️', hp: 100, dmg: 14, range: 22, speed: 1.45, cd: 38, size: 12, spacing: 26 },
+    { id: 'flamethrower', name: 'Flamer', icon: '🔥', hp: 90, dmg: 5, range: 85, speed: 1.25, cd: 8, size: 12, spacing: 28, flame: true },
+    { id: 'sniper', name: 'Sniper', icon: '🎯', hp: 70, dmg: 65, range: 290, speed: 0.9, cd: 110, size: 11, spacing: 30, proj: 'bullet' },
+    { id: 'roman', name: 'Roman', icon: '🛡️', hp: 150, dmg: 16, range: 24, speed: 1.15, cd: 42, size: 13, spacing: 26 },
+    { id: 'grenadier', name: 'Grenadier', icon: '💣', hp: 85, dmg: 45, range: 165, speed: 1.2, cd: 95, size: 12, spacing: 30, proj: 'grenade' },
+    { id: 'archer', name: 'Archer', icon: '🏹', hp: 75, dmg: 18, range: 210, speed: 1.2, cd: 55, size: 11, spacing: 26, proj: 'arrow' },
+    { id: 'cavalry', name: 'Cavalry', icon: '🐎', hp: 155, dmg: 24, range: 28, speed: 2.5, cd: 36, size: 15, spacing: 34 },
+    { id: 'ninja', name: 'Ninja', icon: '🥷', hp: 80, dmg: 22, range: 24, speed: 2.35, cd: 22, size: 11, spacing: 26 },
+    { id: 'tank', name: 'Tank', icon: '🚜', hp: 460, dmg: 75, range: 240, speed: 0.75, cd: 120, size: 20, spacing: 46, proj: 'shell' },
+    { id: 'medic', name: 'Medic', icon: '➕', hp: 85, dmg: 15, range: 120, speed: 1.35, cd: 45, size: 11, spacing: 28, healer: true },
+    { id: 'shield', name: 'Shielder', icon: '🧱', hp: 220, dmg: 10, range: 22, speed: 0.95, cd: 50, size: 13, spacing: 26 },
+    { id: 'mortar', name: 'Mortar', icon: '🧨', hp: 90, dmg: 65, range: 320, speed: 0.55, cd: 140, size: 14, spacing: 36, proj: 'mortar' }
+  ],
+  animals: [
+    { id: 'boar', name: 'Boar', icon: '🐗', hp: 115, dmg: 20, range: 22, speed: 2.1, cd: 35, size: 12, spacing: 28 },
+    { id: 'gorilla', name: 'Gorilla', icon: '🦍', hp: 240, dmg: 34, range: 28, speed: 1.5, cd: 42, size: 16, spacing: 34, thrower: true },
+    { id: 'lion', name: 'Lion', icon: '🦁', hp: 165, dmg: 28, range: 25, speed: 2.2, cd: 32, size: 14, spacing: 30 },
+    { id: 'bear', name: 'Bear', icon: '🐻', hp: 260, dmg: 35, range: 28, speed: 1.45, cd: 44, size: 16, spacing: 34 },
+    { id: 'elephant', name: 'Elephant', icon: '🐘', hp: 450, dmg: 52, range: 34, speed: 1.0, cd: 55, size: 21, spacing: 46 },
+    { id: 'wolf', name: 'Wolf', icon: '🐺', hp: 95, dmg: 18, range: 22, speed: 2.45, cd: 28, size: 11, spacing: 24 },
+    { id: 'rhino', name: 'Rhino', icon: '🦏', hp: 340, dmg: 45, range: 30, speed: 1.85, cd: 48, size: 18, spacing: 40 },
+    { id: 'croc', name: 'Crocodile', icon: '🐊', hp: 170, dmg: 30, range: 24, speed: 1.35, cd: 38, size: 14, spacing: 32 },
+    { id: 'eagle', name: 'Eagle', icon: '🦅', hp: 85, dmg: 20, range: 24, speed: 2.7, cd: 28, size: 12, spacing: 28, flying: true },
+    { id: 'tiger', name: 'Tiger', icon: '🐅', hp: 175, dmg: 31, range: 25, speed: 2.3, cd: 30, size: 14, spacing: 30 }
+  ],
+  mythical: [
+    { id: 'dragon', name: 'Dragon', icon: '🐉', hp: 480, dmg: 10, range: 135, speed: 1.65, cd: 7, size: 21, spacing: 48, flame: true, flying: true },
+    { id: 'giant', name: 'Giant', icon: '👹', hp: 520, dmg: 60, range: 36, speed: 0.9, cd: 60, size: 22, spacing: 48, thrower: true },
+    { id: 'wizard', name: 'Wizard', icon: '🧙', hp: 95, dmg: 38, range: 195, speed: 1.15, cd: 68, size: 12, spacing: 28, proj: 'fireball' },
+    { id: 'skeleton', name: 'Skeleton', icon: '💀', hp: 65, dmg: 13, range: 21, speed: 1.65, cd: 32, size: 11, spacing: 22 },
+    { id: 'phoenix', name: 'Phoenix', icon: '🔥', hp: 220, dmg: 8, range: 110, speed: 2.2, cd: 8, size: 16, spacing: 36, flame: true, flying: true, reborn: true },
+    { id: 'griffin', name: 'Griffin', icon: '🦁', hp: 260, dmg: 34, range: 28, speed: 2.3, cd: 34, size: 17, spacing: 38, flying: true },
+    { id: 'golem', name: 'Golem', icon: '🗿', hp: 580, dmg: 55, range: 32, speed: 0.65, cd: 65, size: 21, spacing: 46 },
+    { id: 'necromancer', name: 'Necro', icon: '🧛', hp: 110, dmg: 24, range: 180, speed: 1.1, cd: 85, size: 12, spacing: 30, proj: 'orb', summoner: true },
+    { id: 'kraken', name: 'Kraken', icon: '🐙', hp: 440, dmg: 44, range: 48, speed: 0.95, cd: 45, size: 20, spacing: 46 }
+  ],
+  terrain: [
+    { id: 'tree', name: 'Tree', icon: '🌲', terrain: true, hp: 90, size: 16, spacing: 34, flammable: true },
+    { id: 'rock', name: 'Boulder', icon: '🪨', terrain: true, hp: 9999, size: 18, spacing: 38, solid: true },
+    { id: 'barrel', name: 'Oil Barrel', icon: '🛢️', terrain: true, hp: 25, size: 12, spacing: 30, explosive: true },
+    { id: 'lava', name: 'Lava', icon: '🌋', terrain: true, hp: 9999, size: 20, spacing: 32, hazard: 'lava' },
+{ id: 'mud', name: 'Mud', icon: '🟤', terrain: true, hp: 9999, size: 22, spacing: 34, hazard: 'mud' },
+{ id: 'mine', name: 'Landmine', icon: '💥', terrain: true, hp: 10, size: 9, spacing: 28, mine: true },
+{ id: 'spikes', name: 'Spikes', icon: '📌', terrain: true, hp: 140, size: 15, spacing: 30, hazard: 'spikes' },
+{ id: 'ice', name: 'Ice Patch', icon: '🧊', terrain: true, hp: 9999, size: 22, spacing: 34, hazard: 'ice' }
+]
+};
+let currentCat = 'army';
+let selectedItem = CATALOG.army[0];
+let units = [];
+let terrains = [];
+let projectiles = [];
+let particles = [];
+let running = false;
+let animTick = 0;
+// Render Category Palette
+function renderPalette() {
+paletteEl.innerHTML = '';
+CATALOG[currentCat].forEach(item => {
+const card = document.createElement('div');
+card.className = 'unit-card' + (selectedItem.id === item.id ? ' selected' : '');
+card.innerHTML = <div class="unit-icon">${item.icon}</div><div class="unit-name">${item.name}</div>;
+card.onclick = () => {
+selectedItem = item;
+renderPalette();
+};
+paletteEl.appendChild(card);
+});
+}
+document.querySelectorAll('.tab').forEach(tab => {
+tab.onclick = () => {
+document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+tab.classList.add('active');
+currentCat = tab.dataset.cat;
+selectedItem = CATALOG[currentCat][0];
+renderPalette();
+};
+});
+renderPalette();
+// Drawing / Placement with Split-Side Center Line
+let isDrawing = false;
+let lastPlacePos = null;
+function getCoords(e) {
+const rect = canvas.getBoundingClientRect();
+const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+return { x: clientX - rect.left, y: clientY - rect.top };
+}
+function trySpawn(x, y) {
+if (running) return;
+if (x < 16 || x > W - 16 || y < 16 || y > H - 16) return;
+if (lastPlacePos && Math.hypot(x - lastPlacePos.x, y - lastPlacePos.y) < selectedItem.spacing) return;
+lastPlacePos = { x, y };
+if (selectedItem.terrain) {
+terrains.push({
+...selectedItem,
+x, y,
+maxHp: selectedItem.hp,
+burning: 0,
+carriedBy: null
+});
+} else {
+// Left of center line = blue, Right of center line = red
+const team = x < W / 2 ? 'blue' : 'red';
+units.push({
+...selectedItem,
+team,
+x, y,
+vx: 0, vy: 0,
+maxHp: selectedItem.hp,
+cooldown: Math.random() * 20,
+phase: Math.random() * Math.PI * 2,
+attackAnim: 0,
+facing: team === 'blue' ? 1 : -1,
+burning: 0,
+rebornUsed: false
+});
+}
+updateCounts();
+}
+canvas.addEventListener('pointerdown', e => {
+isDrawing = true;
+lastPlacePos = null;
+const p = getCoords(e);
+trySpawn(p.x, p.y);
+});
+window.addEventListener('pointermove', e => {
+if (!isDrawing) return;
+const p = getCoords(e);
+trySpawn(p.x, p.y);
+});
+window.addEventListener('pointerup', () => { isDrawing = false; });
+battleBtn.onclick = () => {
+if (!running) {
+if (units.length === 0) return;
+running = true;
+battleBtn.textContent = 'Stop';
+battleBtn.classList.add('running');
+winnerBanner.style.display = 'none';
+} else {
+running = false;
+battleBtn.textContent = 'Battle';
+battleBtn.classList.remove('running');
+}
+};
+clearBtn.onclick = () => {
+running = false;
+battleBtn.textContent = 'Battle';
+battleBtn.classList.remove('running');
+units = [];
+terrains = [];
+projectiles = [];
+particles = [];
+winnerBanner.style.display = 'none';
+updateCounts();
+};
+function updateCounts() {
+const blue = units.filter(u => u.team === 'blue').length;
+const red = units.filter(u => u.team === 'red').length;
+blueCountEl.textContent = blue;
+redCountEl.textContent = red;
+if (running && (blue === 0 || red === 0)) {
+running = false;
+battleBtn.textContent = 'Battle';
+battleBtn.classList.remove('running');
+winnerBanner.style.display = 'block';
+if (blue === 0 && red === 0) winnerBanner.textContent = 'Draw! Everyone fell.';
+else if (blue > 0) winnerBanner.textContent = '🔵 Blue Team Wins!';
+else winnerBanner.textContent = '🔴 Red Team Wins!';
+}
+}
+// Explosion & Particle Helpers
+function spawnParticles(x, y, color, count, speed = 3, life = 24) {
+for (let i = 0; i < count; i++) {
+const a = Math.random() * Math.PI * 2;
+const s = Math.random() * speed;
+particles.push({
+x, y,
+vx: Math.cos(a) * s,
+vy: Math.sin(a) * s,
+color,
+life: life * (0.6 + Math.random() * 0.6),
+maxLife: life,
+size: 2.5 + Math.random() * 3.5
+});
+}
+}
+function explode(x, y, radius, damage) {
+spawnParticles(x, y, '#f97316', 24, 5, 28);
+spawnParticles(x, y, '#ef4444', 18, 3.5, 24);
+spawnParticles(x, y, '#374151', 12, 2.5, 32);
+units.forEach(u => {
+const d = Math.hypot(u.x - x, u.y - y);
+if (d < radius) {
+const falloff = 1 - d / radius;
+u.hp -= damage * falloff;
+const ang = Math.atan2(u.y - y, u.x - x);
+u.vx += Math.cos(ang) * 7 * falloff;
+u.vy += Math.sin(ang) * 7 * falloff;
+}
+});
+terrains.forEach(t => {
+if (t.hp <= 0) return;
+const d = Math.hypot(t.x - x, t.y - y);
+if (d < radius) {
+if (t.flammable) t.burning = 180;
+if (t.explosive && d > 2) { t.hp = 0; setTimeout(() => explode(t.x, t.y, 95, 120), 60); }
+}
+});
+}
+// Simulation Step
+function step() {
+animTick++;
+// Update Particles
+for (let i = particles.length - 1; i >= 0; i--) {
+const p = particles[i];
+p.x += p.vx;
+p.y += p.vy;
+p.vx *= 0.94;
+p.vy *= 0.94;
+p.life--;
+if (p.life <= 0) particles.splice(i, 1);
+}
+if (!running) return;
+// Terrain updates (burning trees, hazards)
+for (let i = terrains.length - 1; i >= 0; i--) {
+const t = terrains[i];
+if (t.burning > 0) {
+t.burning--;
+t.hp -= 0.35;
+if (Math.random() < 0.35) spawnParticles(t.x + (Math.random() - 0.5) * 14, t.y - 6, '#f97316', 1, 1.2, 18);
+// Spread fire to nearby trees/units
+terrains.forEach(other => {
+if (other !== t && other.flammable && other.burning <= 0 && Math.hypot(other.x - t.x, other.y - t.y) < 42) {
+if (Math.random() < 0.02) other.burning = 180;
+}
+});
+units.forEach(u => {
+if (Math.hypot(u.x - t.x, u.y - t.y) < 26) u.burning = Math.max(u.burning, 60);
+});
+}
+if (t.hp <= 0) terrains.splice(i, 1);
+}
+// Projectiles
+for (let i = projectiles.length - 1; i >= 0; i--) {
+const pr = projectiles[i];
+pr.x += pr.vx;
+pr.y += pr.vy;
+pr.life--;
+if (pr.arc) pr.z = Math.sin((1 - pr.life / pr.maxLife) * Math.PI) * 45;
+let hit = false;
+if (!pr.arc || pr.life <= 2) {
+for (const u of units) {
+if (u.team !== pr.team && Math.hypot(u.x - pr.x, u.y - pr.y) < u.size + 6) {
+if (pr.aoe) {
+explode(pr.x, pr.y, pr.aoe, pr.dmg);
+} else {
+u.hp -= pr.dmg;
+spawnParticles(pr.x, pr.y, pr.color, 5, 2, 14);
+if (pr.burn) u.burning = 90;
+}
+hit = true;
+break;
+}
+}
+if (!hit && !pr.arc) {
+for (const t of terrains) {
+if (t.solid && Math.hypot(t.x - pr.x, t.y - pr.y) < t.size) { hit = true; break; }
+if (t.explosive && Math.hypot(t.x - pr.x, t.y - pr.y) < t.size + 5) {
+t.hp = 0;
+explode(t.x, t.y, 95, 120);
+hit = true;
+break;
+}
+}
+}
+}
+if (hit || pr.life <= 0) {
+if (pr.aoe && !hit) explode(pr.x, pr.y, pr.aoe, pr.dmg);
+projectiles.splice(i, 1);
+}
+}
+// Units AI & Physics
+for (let i = 0; i < units.length; i++) {
+const u = units[i];
+if (u.cooldown > 0) u.cooldown--;
+if (u.attackAnim > 0) u.attackAnim--;
+if (u.burning > 0) {
+u.burning--;
+u.hp -= 0.22;
+if (Math.random() < 0.25) spawnParticles(u.x, u.y - 4, '#f97316', 1, 1, 14);
+}
+// Terrain interactions
+let speedMult = 1;
+for (const t of terrains) {
+const dist = Math.hypot(u.x - t.x, u.y - t.y);
+if (dist < u.size + t.size) {
+if (t.solid && !u.flying) {
+const ang = Math.atan2(u.y - t.y, u.x - t.x);
+const push = u.size + t.size - dist;
+u.x += Math.cos(ang) * push;
+u.y += Math.sin(ang) * push;
+} else if (t.hazard === 'lava' && !u.flying) {
+u.hp -= 0.7;
+u.burning = 50;
+} else if (t.hazard === 'mud' && !u.flying) {
+speedMult = 0.45;
+} else if (t.hazard === 'ice' && !u.flying) {
+speedMult = 1.55;
+} else if (t.hazard === 'spikes' && !u.flying) {
+u.hp -= 0.35;
+} else if (t.mine && !u.flying) {
+t.hp = 0;
+explode(t.x, t.y, 70, 95);
+}
+}
+}
+// Find target (enemy, or wounded ally for Medic)
+let target = null;
+let bestDist = Infinity;
+if (u.healer) {
+for (const ally of units) {
+if (ally !== u && ally.team === u.team && ally.hp < ally.maxHp) {
+const d = Math.hypot(ally.x - u.x, ally.y - u.y);
+if (d < bestDist) { bestDist = d; target = ally; }
+}
+}
+}
+if (!target) {
+for (const other of units) {
+if (other.team !== u.team) {
+const d = Math.hypot(other.x - u.x, other.y - u.y);
+if (d < bestDist) { bestDist = d; target = other; }
+}
+}
+}
+// Unit-to-unit separation
+for (let j = i + 1; j < units.length; j++) {
+const o = units[j];
+if (!!u.flying !== !!o.flying) continue;
+const dx = u.x - o.x;
+const dy = u.y - o.y;
+const dist = Math.hypot(dx, dy);
+const minD = u.size + o.size;
+if (dist > 0 && dist < minD) {
+const push = (minD - dist) * 0.22;
+const nx = dx / dist, ny = dy / dist;
+u.x += nx * push; u.y += ny * push;
+o.x -= nx * push; o.y -= ny * push;
+}
+}
+if (target) {
+const dx = target.x - u.x;
+const dy = target.y - u.y;
+const dist = Math.hypot(dx, dy);
+if (dx !== 0) u.facing = dx > 0 ? 1 : -1;
+if (dist > u.range) {
+u.vx += (dx / dist) * u.speed * speedMult * 0.25;
+u.vy += (dy / dist) * u.speed * speedMult * 0.25;
+u.phase += 0.22 * u.speed;
+} else if (u.cooldown <= 0) {
+u.cooldown = u.cd;
+u.attackAnim = 12;
+const ang = Math.atan2(dy, dx);
+if (u.healer && target.team === u.team) {
+target.hp = Math.min(target.maxHp, target.hp + u.dmg);
+spawnParticles(target.x, target.y, '#22c55e', 6, 1.5, 18);
+} else if (u.flame) {
+spawnParticles(u.x + Math.cos(ang) * 18, u.y + Math.sin(ang) * 18, '#f97316', 3, 3.8, 16);
+units.forEach(en => {
+if (en.team !== u.team && Math.hypot(en.x - u.x, en.y - u.y) < u.range) {
+const a2 = Math.atan2(en.y - u.y, en.x - u.x);
+if (Math.abs(Math.atan2(Math.sin(a2 - ang), Math.cos(a2 - ang))) < 0.55) {
+en.hp -= u.dmg;
+en.burning = 45;
+}
+}
+});
+terrains.forEach(t => {
+if (Math.hypot(t.x - u.x, t.y - u.y) < u.range) {
+if (t.flammable) t.burning = 180;
+if (t.explosive) { t.hp = 0; explode(t.x, t.y, 95, 120); }
+}
+});
+} else if (u.proj) {
+const specs = {
+bullet:   { spd: 11, life: 32, color: '#111827', aoe: 0 },
+arrow:    { spd: 6.5, life: 38, color: '#78350f', aoe: 0 },
+grenade:  { spd: 4.2, life: 42, color: '#15803d', aoe: 58, arc: true },
+shell:    { spd: 7.5, life: 36, color: '#1f2937', aoe: 68 },
+mortar:   { spd: 4.5, life: 70, color: '#111827', aoe: 80, arc: true },
+fireball: { spd: 5.5, life: 40, color: '#ea580c', aoe: 42, burn: true },
+orb:      { spd: 5.0, life: 42, color: '#7e22ce', aoe: 0 }
+}[u.proj];
+projectiles.push({
+x: u.x, y: u.y, z: 0,
+vx: Math.cos(ang) * specs.spd,
+vy: Math.sin(ang) * specs.spd,
+life: specs.life, maxLife: specs.life,
+team: u.team, dmg: u.dmg,
+color: specs.color, aoe: specs.aoe, arc: specs.arc, burn: specs.burn
+});
+if (u.summoner && Math.random() < 0.35 && units.length < 260) {
+const skel = CATALOG.mythical.find(m => m.id === 'skeleton');
+units.push({
+...skel, team: u.team,
+x: u.x + (Math.random() - 0.5) * 28,
+y: u.y + (Math.random() - 0.5) * 28,
+vx: 0, vy: 0, maxHp: skel.hp, cooldown: 20, phase: 0, attackAnim: 0, facing: u.facing, burning: 0
+});
+}
+} else {
+// Melee attack + Gorillas/Giants throwing nearby barrels
+if (u.thrower) {
+const barrel = terrains.find(t => t.explosive && Math.hypot(t.x - u.x, t.y - u.y) < 38);
+if (barrel) {
+barrel.hp = 0;
+projectiles.push({
+x: u.x, y: u.y, z: 0,
+vx: Math.cos(ang) * 5.2, vy: Math.sin(ang) * 5.2,
+life: 36, maxLife: 36, team: u.team, dmg: 110,
+color: '#dc2626', aoe: 90, arc: true
+});
+continue;
+}
+}
+target.hp -= u.dmg;
+target.vx += Math.cos(ang) * 2.2;
+target.vy += Math.sin(ang) * 2.2;
+spawnParticles(target.x, target.y, u.team === 'blue' ? '#3b82f6' : '#ef4444', 4, 2, 12);
+}
+}
+}
+u.x += u.vx;
+u.y += u.vy;
+u.vx *= 0.78;
+u.vy *= 0.78;
+u.x = Math.max(u.size, Math.min(W - u.size, u.x));
+u.y = Math.max(u.size, Math.min(H - u.size, u.y));
+}
+// Cleanup fallen units
+let died = false;
+for (let i = units.length - 1; i >= 0; i--) {
+const u = units[i];
+if (u.hp <= 0) {
+if (u.reborn && !u.rebornUsed) {
+u.rebornUsed = true;
+u.hp = u.maxHp * 0.75;
+spawnParticles(u.x, u.y, '#f59e0b', 22, 4, 26);
+} else {
+spawnParticles(u.x, u.y, u.team === 'blue' ? '#2563eb' : '#dc2626', 10, 2.8, 20);
+units.splice(i, 1);
+died = true;
+}
+}
+}
+if (died) updateCounts();
+}
+// Animated Custom Models Renderer
+function drawUnit(u) {
+const isBlue = u.team === 'blue';
+const mainColor = isBlue ? '#2563eb' : '#dc2626';
+const darkColor = isBlue ? '#1d4ed8' : '#b91c1c';
+const lightColor = isBlue ? '#93c5fd' : '#fca5a5';
+const walk = Math.sin(u.phase) * 3.5;
+const swing = u.attackAnim > 0 ? Math.sin((u.attackAnim / 12) * Math.PI) * 0.9 : 0;
+const hover = u.flying ? Math.sin(animTick * 0.14 + u.phase) * 4 - 6 : 0;
+ctx.save();
+ctx.translate(u.x, u.y);
+// Ground shadow
+ctx.fillStyle = 'rgba(0,0,0,0.12)';
+ctx.beginPath();
+ctx.ellipse(0, u.size * 0.85, u.size * 0.85, u.size * 0.35, 0, 0, Math.PI * 2);
+ctx.fill();
+ctx.translate(0, hover);
+ctx.scale(u.facing, 1);
+if (u.id === 'tank') {
+// Animated Tank Treads + Turret
+ctx.fillStyle = '#374151';
+ctx.fillRect(-18, 4, 36, 9);
+ctx.fillStyle = '#9ca3af';
+for (let wx = -14; wx <= 14; wx += 7) {
+ctx.beginPath();
+ctx.arc(wx + (walk * 0.3), 8.5, 2.5, 0, Math.PI * 2);
+ctx.fill();
+}
+ctx.fillStyle = mainColor;
+ctx.beginPath();
+ctx.roundRect(-16, -7, 32, 12, 4);
+ctx.fill();
+ctx.fillStyle = darkColor;
+ctx.beginPath();
+ctx.roundRect(-9, -15, 18, 9, 4);
+ctx.fill();
+ctx.fillStyle = '#1f2937';
+ctx.fillRect(8, -12, 16 - swing * 3, 4);
+} else if (['boar','lion','bear','elephant','wolf','rhino','croc','tiger'].includes(u.id)) {
+// Quadruped Animated Animal Model
+const s = u.size;
+ctx.strokeStyle = darkColor;
+ctx.lineWidth = Math.max(2.5, s * 0.22);
+ctx.lineCap = 'round';
+// Animated 4 legs
+[[-s0.55, walk], [-s0.25, -walk], [s0.25, -walk], [s0.55, walk]].forEach(([lx, off]) => {
+ctx.beginPath();
+ctx.moveTo(lx, 2);
+ctx.lineTo(lx + off, s * 0.78);
+ctx.stroke();
+});
+// Body
+ctx.fillStyle = mainColor;
+ctx.beginPath();
+ctx.ellipse(0, 0, s * 0.9, s * 0.55, 0, 0, Math.PI * 2);
+ctx.fill();
+// Head
+ctx.fillStyle = darkColor;
+ctx.beginPath();
+ctx.arc(s * 0.78, -s * 0.18 + swing * 3, s * 0.44, 0, Math.PI * 2);
+ctx.fill();
+// Tusks / Trunk / Ears detail
+if (u.id === 'elephant' || u.id === 'boar' || u.id === 'rhino') {
+ctx.strokeStyle = '#f9fafb';
+ctx.lineWidth = 2.5;
+ctx.beginPath();
+ctx.moveTo(s * 1.05, -s * 0.05);
+ctx.lineTo(s * 1.45, -s * 0.28);
+ctx.stroke();
+}
+// Eye
+ctx.fillStyle = '#fff';
+ctx.beginPath();
+ctx.arc(s * 0.9, -s * 0.26, 2, 0, Math.PI * 2);
+ctx.fill();
+} else if (['dragon','eagle','phoenix','griffin'].includes(u.id)) {
+// Winged Flying Creature Model
+const s = u.size;
+const flap = Math.sin(animTick * 0.28 + u.phase) * (s * 0.85);
+// Back wing
+ctx.fillStyle = darkColor;
+ctx.beginPath();
+ctx.moveTo(-2, -2);
+ctx.quadraticCurveTo(-s * 0.6, -s - flap, -s * 1.1, -flap * 0.5);
+ctx.closePath();
+ctx.fill();
+// Body
+ctx.fillStyle = mainColor;
+ctx.beginPath();
+ctx.ellipse(0, 0, s * 0.85, s * 0.45, -0.15, 0, Math.PI * 2);
+ctx.fill();
+// Head
+ctx.beginPath();
+ctx.arc(s * 0.75, -s * 0.35, s * 0.38, 0, Math.PI * 2);
+ctx.fill();
+// Front animated wing
+ctx.fillStyle = lightColor;
+ctx.beginPath();
+ctx.moveTo(0, -1);
+ctx.quadraticCurveTo(-s * 0.3, -s * 1.1 + flap, -s * 0.95, flap * 0.7);
+ctx.closePath();
+ctx.fill();
+} else if (u.id === 'kraken') {
+// Animated Tentacle Kraken
+const s = u.size;
+ctx.strokeStyle = darkColor;
+ctx.lineWidth = 3.2;
+for (let t = -2; t <= 2; t++) {
+const wave = Math.sin(animTick * 0.18 + t) * 5;
+ctx.beginPath();
+ctx.moveTo(t * 4, 4);
+ctx.quadraticCurveTo(t * 6 + wave, s * 0.6, t * 7 - wave, s * 0.9);
+ctx.stroke();
+}
+ctx.fillStyle = mainColor;
+ctx.beginPath();
+ctx.arc(0, -3, s * 0.72, Math.PI, 0);
+ctx.lineTo(s * 0.72, 5);
+ctx.lineTo(-s * 0.72, 5);
+ctx.closePath();
+ctx.fill();
+} else {
+// Articulated Humanoid / Giant / Golem / Cavalry Model
+const s = u.size;
+if (u.id === 'cavalry') {
+// Mount legs
+ctx.strokeStyle = '#78350f';
+ctx.lineWidth = 2.6;
+[[-8, walk], [8, -walk]].forEach(([lx, off]) => {
+ctx.beginPath(); ctx.moveTo(lx, 4); ctx.lineTo(lx + off, 14); ctx.stroke();
+});
+ctx.fillStyle = '#92400e';
+ctx.beginPath(); ctx.ellipse(0, 3, 13, 6, 0, 0, Math.PI * 2); ctx.fill();
+ctx.translate(0, -6);
+}
+// Walking legs
+ctx.strokeStyle = '#1f2937';
+ctx.lineWidth = Math.max(2.2, s * 0.2);
+ctx.lineCap = 'round';
+ctx.beginPath(); ctx.moveTo(-2, s * 0.25); ctx.lineTo(-2 + walk, s * 0.85); ctx.stroke();
+ctx.beginPath(); ctx.moveTo(2, s * 0.25); ctx.lineTo(2 - walk, s * 0.85); ctx.stroke();
+// Torso
+ctx.fillStyle = u.id === 'skeleton' ? '#e5e7eb' : (u.id === 'golem' ? '#6b7280' : mainColor);
+ctx.beginPath();
+ctx.roundRect(-s * 0.45, -s * 0.35, s * 0.9, s * 0.7, 3);
+ctx.fill();
+// Head
+ctx.fillStyle = u.id === 'skeleton' ? '#f9fafb' : (u.id === 'ninja' ? '#111827' : '#fde68a');
+ctx.beginPath();
+ctx.arc(0, -s * 0.65, s * 0.38, 0, Math.PI * 2);
+ctx.fill();
+// Helmet / Hat
+if (['soldier','roman','shield'].includes(u.id)) {
+ctx.fillStyle = darkColor;
+ctx.beginPath();
+ctx.arc(0, -s * 0.72, s * 0.41, Math.PI, 0);
+ctx.fill();
+} else if (u.id === 'wizard' || u.id === 'necromancer') {
+ctx.fillStyle = u.id === 'wizard' ? mainColor : '#4c1d95';
+ctx.beginPath();
+ctx.moveTo(-s * 0.5, -s * 0.8);
+ctx.lineTo(s * 0.5, -s * 0.8);
+ctx.lineTo(0, -s * 1.45);
+ctx.closePath();
+ctx.fill();
+}
+// Swinging Arm & Weapon
+ctx.save();
+ctx.translate(2, -s * 0.15);
+ctx.rotate(swing);
+ctx.strokeStyle = '#111827';
+ctx.lineWidth = 2.4;
+ctx.beginPath();
+ctx.moveTo(0, 0);
+ctx.lineTo(s * 1.15, -2);
+ctx.stroke();
+// Shield for Roman / Shielder
+if (u.id === 'roman' || u.id === 'shield') {
+ctx.fillStyle = lightColor;
+ctx.strokeStyle = darkColor;
+ctx.lineWidth = 1.5;
+ctx.fillRect(s * 0.35, -s * 0.5, 4, s * 0.95);
+ctx.strokeRect(s * 0.35, -s * 0.5, 4, s * 0.95);
+}
+ctx.restore();
+}
+ctx.restore();
+// HP Bar (only when damaged)
+if (u.hp < u.maxHp) {
+const bw = Math.max(18, u.size * 1.6);
+ctx.fillStyle = 'rgba(0,0,0,0.25)';
+ctx.fillRect(u.x - bw / 2, u.y - u.size - 11 + hover, bw, 3.5);
+ctx.fillStyle = isBlue ? '#2563eb' : '#dc2626';
+ctx.fillRect(u.x - bw / 2, u.y - u.size - 11 + hover, bw * Math.max(0, u.hp / u.maxHp), 3.5);
+}
+}
+function drawTerrain(t) {
+ctx.save();
+ctx.translate(t.x, t.y);
+if (t.id === 'tree') {
+ctx.fillStyle = '#78350f';
+ctx.fillRect(-3, 2, 6, 12);
+ctx.fillStyle = t.burning > 0 ? '#ea580c' : '#16a34a';
+ctx.beginPath(); ctx.arc(0, -4, 13, 0, Math.PI * 2); ctx.fill();
+} else if (t.id === 'rock') {
+ctx.fillStyle = '#6b7280';
+ctx.beginPath(); ctx.arc(0, 0, t.size, 0, Math.PI * 2); ctx.fill();
+ctx.fillStyle = '#9ca3af';
+ctx.beginPath(); ctx.arc(-4, -4, t.size * 0.45, 0, Math.PI * 2); ctx.fill();
+} else if (t.id === 'barrel') {
+ctx.fillStyle = '#dc2626';
+ctx.beginPath(); ctx.roundRect(-8, -11, 16, 22, 3); ctx.fill();
+ctx.fillStyle = '#fca5a5';
+ctx.fillRect(-8, -4, 16, 3);
+ctx.fillRect(-8, 3, 16, 3);
+} else if (t.id === 'lava') {
+ctx.fillStyle = '#f97316';
+ctx.beginPath(); ctx.arc(0, 0, t.size, 0, Math.PI * 2); ctx.fill();
+ctx.fillStyle = '#facc15';
+ctx.beginPath(); ctx.arc(Math.sin(animTick * 0.1) * 4, 0, t.size * 0.5, 0, Math.PI * 2); ctx.fill();
+} else if (t.id === 'mud') {
+ctx.fillStyle = 'rgba(120, 53, 15, 0.35)';
+ctx.beginPath(); ctx.arc(0, 0, t.size, 0, Math.PI * 2); ctx.fill();
+} else if (t.id === 'mine') {
+ctx.fillStyle = '#374151';
+ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.fill();
+ctx.fillStyle = Math.floor(animTick / 15) % 2 === 0 ? '#ef4444' : '#7f1d1d';
+ctx.beginPath(); ctx.arc(0, 0, 2.5, 0, Math.PI * 2); ctx.fill();
+} else if (t.id === 'spikes') {
+ctx.fillStyle = '#4b5563';
+for (let sx = -9; sx <= 9; sx += 6) {
+ctx.beginPath(); ctx.moveTo(sx - 2, 6); ctx.lineTo(sx, -6); ctx.lineTo(sx + 2, 6); ctx.fill();
+}
+} else if (t.id === 'ice') {
+ctx.fillStyle = 'rgba(186, 230, 253, 0.65)';
+ctx.beginPath(); ctx.arc(0, 0, t.size, 0, Math.PI * 2); ctx.fill();
+}
+ctx.restore();
+}
+function render() {
+ctx.clearRect(0, 0, W, H);
+// Center Divider Line (Blue Left / Red Right)
+ctx.save();
+ctx.strokeStyle = running ? 'rgba(209, 213, 219, 0.45)' : '#d1d5db';
+ctx.lineWidth = 2;
+ctx.setLineDash([8, 8]);
+ctx.beginPath();
+ctx.moveTo(W / 2, 0);
+ctx.lineTo(W / 2, H);
+ctx.stroke();
+ctx.restore();
+if (!running && units.length === 0 && terrains.length === 0) {
+ctx.font = '700 14px -apple-system, sans-serif';
+ctx.textAlign = 'center';
+ctx.fillStyle = 'rgba(37, 99, 235, 0.45)';
+ctx.fillText('← Draw Blue Army Here', W * 0.25, H * 0.5);
+ctx.fillStyle = 'rgba(220, 38, 38, 0.45)';
+ctx.fillText('Draw Red Army Here →', W * 0.75, H * 0.5);
+}
+// Draw ground terrains
+terrains.forEach(drawTerrain);
+// Depth-sort units by Y position
+const sortedUnits = [...units].sort((a, b) => a.y - b.y);
+sortedUnits.forEach(drawUnit);
+// Projectiles
+projectiles.forEach(pr => {
+ctx.fillStyle = pr.color;
+ctx.beginPath();
+ctx.arc(pr.x, pr.y - (pr.z || 0), pr.aoe ? 4.5 : 3, 0, Math.PI * 2);
+ctx.fill();
+});
+// Particles
+particles.forEach(p => {
+ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+ctx.fillStyle = p.color;
+ctx.beginPath();
+ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+ctx.fill();
+});
+ctx.globalAlpha = 1;
+}
+function loop() {
+step();
+render();
+requestAnimationFrame(loop);
+}
+loop();
