@@ -19,8 +19,10 @@
     const additions=`
 <script>
 CATALOG.mythical.push(
-  make('darsh','Darsh','🇮🇳',2320,70,64,1.4,130,42),
-  make('aarav','Aarav','📚',95,32,220,.2,52,12,{proj:'aplus'})
+  make('darsh','Darsh','🇮🇳',2320,260,64,.48,130,42),
+  make('aarav','Aarav','📚',95,32,220,2.4,52,12,{proj:'aplus'}),
+  make('nada','Nada','⚡',70,5,28,5.5,26,10),
+  make('pj','PJ','💣',160,45,12,3.2,30,15)
 );
 projectileStats.aplus=[7.2,32,'#7c3aed',0,false];
 const originalFire=fire;
@@ -28,6 +30,17 @@ fire=function(unit,target){
   const firstNewProjectile=projectiles.length;
   originalFire(unit,target);
   if(unit.id==='aarav'&&projectiles[firstNewProjectile]) projectiles[firstNewProjectile].label='A+';
+};
+const originalAttack=attack;
+attack=function(unit,target){
+  if(unit.id==='pj'){
+    if(unit.exploded) return;
+    unit.exploded=true;
+    explode(unit.x,unit.y,90,170);
+    unit.hp=0;
+    return;
+  }
+  originalAttack(unit,target);
 };
 const originalRender=render;
 render=function(){
