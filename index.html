@@ -18,7 +18,7 @@
     let html=await response.text();
     const additions=`
 <script>
-CATALOG.mythical.push(
+CATALOG.special=[
   make('darsh','Darsh','🇮🇳',2320,260,64,.48,130,42),
   make('aarav','Aarav','📚',95,32,220,2.4,52,12,{proj:'aplus'}),
   make('nada','Nada','⚡',70,5,28,5.5,26,10),
@@ -26,8 +26,17 @@ CATALOG.mythical.push(
   make('paul','Paul','🌀',180,55,30,1.65,46,13),
   make('gupta-king','Gupta King','👑',5200,190,48,.45,95,31),
   make('airplane','Airplane','✈️',280,95,100,2.1,62,20,{flying:true})
-);
+];
 projectileStats.aplus=[7.2,32,'#7c3aed',0,false];
+const mythicalTab=document.querySelector('.tab[data-cat="mythical"]');
+if(mythicalTab&&!document.querySelector('.tab[data-cat="special"]')){
+  const specialTab=document.createElement('button');
+  specialTab.type='button';
+  specialTab.className='tab';
+  specialTab.dataset.cat='special';
+  specialTab.textContent='Special';
+  mythicalTab.insertAdjacentElement('afterend',specialTab);
+}
 const originalFire=fire;
 fire=function(unit,target){
   const firstNewProjectile=projectiles.length;
@@ -44,7 +53,6 @@ attack=function(unit,target){
     return;
   }
   if(unit.id==='airplane'){
-    // Drop a blast at the target's position once the plane reaches bombing range.
     explode(target.x,target.y,82,unit.dmg);
     return;
   }
@@ -112,6 +120,10 @@ render=function(){
     ctx.restore();
   }
 };
+const specialTab=document.querySelector('.tab[data-cat="special"]');
+if(specialTab){
+  specialTab.addEventListener('click',()=>{currentCat='special';document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));specialTab.classList.add('active');renderPalette();});
+}
 renderPalette();
 <\/script>`;
     const bodyClose=html.lastIndexOf('</body>');
