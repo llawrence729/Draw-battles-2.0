@@ -92,6 +92,56 @@ render=function(){
     ctx.restore();
   }
 };
+projectileStats.aplus=[7.2,32,'#7c3aed',0,false];
+CATALOG.special.push(
+  make('true-aarav','True Aarav','📚',1200,80,240,1.8,48,16,{proj:'aplus'})
+);
+const originalFireForTrueAarav=fire;
+fire=function(unit,target){
+  const firstProjectile=projectiles.length;
+  originalFireForTrueAarav(unit,target);
+  if(unit.id==='true-aarav'&&projectiles[firstProjectile]) projectiles[firstProjectile].label='A+';
+};
+const stepBeforeTrueAarav=step;
+step=function(){
+  if(running){
+    for(const unit of units){
+      if(unit.id!=='true-aarav'||unit.hp<=0) continue;
+      unit.teleportTimer=(unit.teleportTimer??600)-1;
+      if(unit.teleportTimer<=0){
+        unit.x=12+Math.random()*Math.max(1,W-24);
+        unit.y=12+Math.random()*Math.max(1,H-24);
+        unit.teleportTimer=600;
+        spawnParticles(unit.x,unit.y,'#7c3aed',22,5,26);
+      }
+      unit.studyTimer=(unit.studyTimer??300)-1;
+      if(unit.studyTimer<=0){
+        unit.studyStacks=(unit.studyStacks||0)+1;
+        unit.dmg=Math.min(1e12,unit.dmg*1.1);
+        unit.range=Math.min(1e6,unit.range*1.1);
+        unit.speed=Math.min(20,unit.speed*1.1);
+        unit.cd=Math.max(1,unit.cd*.9);
+        unit.cooldown=Math.min(unit.cooldown||0,unit.cd);
+        unit.maxHp=Math.min(1e12,unit.maxHp*1.1);
+        unit.hp=Math.min(unit.maxHp,unit.hp*1.1);
+        const radius=220;
+        for(const other of units){
+          if(other===unit||other.hp<=0) continue;
+          const dx=other.x-unit.x,dy=other.y-unit.y;
+          const distance=Math.hypot(dx,dy);
+          if(distance>radius) continue;
+          const angle=distance>0?Math.atan2(dy,dx):Math.random()*Math.PI*2;
+          const force=130*(1-distance/radius)+35;
+          other.x=Math.max(12,Math.min(W-12,other.x+Math.cos(angle)*force));
+          other.y=Math.max(12,Math.min(H-12,other.y+Math.sin(angle)*force));
+        }
+        spawnParticles(unit.x,unit.y,'#a855f7',38,8,34);
+        unit.studyTimer=300;
+      }
+    }
+  }
+  stepBeforeTrueAarav();
+};
 `;
     html=html.slice(0,insertion)+additions+html.slice(insertion);
     document.open();
