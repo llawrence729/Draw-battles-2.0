@@ -22,7 +22,10 @@ CATALOG.mythical.push(
   make('darsh','Darsh','🇮🇳',2320,260,64,.48,130,42),
   make('aarav','Aarav','📚',95,32,220,2.4,52,12,{proj:'aplus'}),
   make('nada','Nada','⚡',70,5,28,5.5,26,10),
-  make('pj','PJ','💣',160,45,12,3.2,30,15)
+  make('pj','PJ','💣',160,45,12,3.2,30,15),
+  make('paul','Paul','🌀',180,55,30,1.65,46,13),
+  make('gupta-king','Gupta King','👑',5200,190,48,.45,95,31),
+  make('airplane','Airplane','✈️',280,95,100,2.1,62,20,{flying:true})
 );
 projectileStats.aplus=[7.2,32,'#7c3aed',0,false];
 const originalFire=fire;
@@ -40,7 +43,57 @@ attack=function(unit,target){
     unit.hp=0;
     return;
   }
+  if(unit.id==='airplane'){
+    // Drop a blast at the target's position once the plane reaches bombing range.
+    explode(target.x,target.y,82,unit.dmg);
+    return;
+  }
   originalAttack(unit,target);
+};
+function summonGuptaAlly(king,kind){
+  const isTank=kind==='tank';
+  const angle=Math.random()*Math.PI*2;
+  const distance=king.size+20;
+  const template=isTank
+    ? make('gupta-tank','Royal Tank','🛡️',720,78,34,.72,58,19)
+    : make('gupta-minion','Little Gupta','👑',240,42,30,1.25,42,12);
+  const x=Math.max(14,Math.min(W-14,king.x+Math.cos(angle)*distance));
+  const y=Math.max(14,Math.min(H-14,king.y+Math.sin(angle)*distance));
+  units.push({...template,x,y,team:king.team,hp:template.hp,maxHp:template.hp,cooldown:0,facing:king.facing||1,burning:0});
+  spawnParticles(x,y,isTank?'#64748b':'#fbbf24',12,3,22);
+}
+const originalStep=step;
+step=function(){
+  if(running){
+    for(const unit of units){
+      if(unit.hp<=0) continue;
+      if(unit.id==='paul'){
+        unit.teleportCooldown=Math.max(0,(unit.teleportCooldown||0)-1);
+        if(unit.teleportCooldown===0){
+          const target=nearest(units,unit.x,unit.y,other=>other.team!==unit.team&&other.hp>0);
+          if(target){
+            const side=target.facing|| (unit.x<target.x?1:-1);
+            unit.x=Math.max(12,Math.min(W-12,target.x-side*(target.size+unit.size+10)));
+            unit.y=Math.max(12,Math.min(H-12,target.y+(Math.random()-.5)*24));
+            unit.teleportCooldown=105;
+            spawnParticles(unit.x,unit.y,'#8b5cf6',14,3,20);
+          }
+        }
+      }else if(unit.id==='gupta-king'){
+        unit.summonCooldown=Math.max(0,(unit.summonCooldown||0)-1);
+        if(unit.summonCooldown===0){
+          const allies=units.filter(other=>other.team===unit.team&&other.id.startsWith('gupta-')&&other.id!=='gupta-king').length;
+          if(allies<10){
+            const kind=unit.nextSummon==='tank'?'tank':'minion';
+            summonGuptaAlly(unit,kind);
+            unit.nextSummon=kind==='tank'?'minion':'tank';
+          }
+          unit.summonCooldown=145;
+        }
+      }
+    }
+  }
+  originalStep();
 };
 const originalRender=render;
 render=function(){
