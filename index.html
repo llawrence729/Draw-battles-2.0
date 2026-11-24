@@ -21,7 +21,7 @@
     if(insertion<0) throw new Error('Game extension point unavailable');
     const additions=`
 CATALOG.special.push(
-  make('awakened-darsh','Awakened Darsh','⚡',1800,115,72,2.2,70,19)
+  make('awakened-darsh','Awakened Darsh','⚡',5000,115,72,2.2,70,19)
 );
 const previousStep=step;
 step=function(){
@@ -33,12 +33,17 @@ step=function(){
         unit.powerUpTimer=0;
         unit.dmg+=2;
         unit.speed=Math.min(5.5,unit.speed+.025);
+        unit.maxHp+=75;
+        unit.hp=Math.min(unit.maxHp,unit.hp+75);
+        unit.healthLevel=(unit.healthLevel||0)+1;
+        unit.teleportInterval=Math.max(120,600-unit.healthLevel*12);
       }
+      unit.hp=Math.min(unit.maxHp,unit.hp+.18);
       unit.awakenedTeleport=(unit.awakenedTeleport??600)-1;
       if(unit.awakenedTeleport<=0){
         unit.x=12+Math.random()*Math.max(1,W-24);
         unit.y=12+Math.random()*Math.max(1,H-24);
-        unit.awakenedTeleport=600;
+        unit.awakenedTeleport=unit.teleportInterval||600;
         spawnParticles(unit.x,unit.y,'#a855f7',24,6,28);
       }
     }
