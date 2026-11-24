@@ -85,7 +85,12 @@ step=function(){
       }
     }
   }
-  for(const u of units){if(u.paralyzed>0){u.paralyzed--;u._restoreSpeed=u.speed;u.speed=0;}else if(u._restoreSpeed!==undefined){u.speed=u._restoreSpeed;delete u._restoreSpeed;}}
+  for(const u of units){
+    if(u.id==='awakened-darsh'){
+      u.awakenedBaseSpeed=(u.awakenedBaseSpeed??u.speed)+(u.growth||0)*.05;
+      if(u.paralyzed>0){u.speed=0;}else{u.speed=u.awakenedBaseSpeed;}
+    }else if(u.paralyzed>0){u.paralyzed--;u._restoreSpeed=u.speed;u.speed=0;}else if(u._restoreSpeed!==undefined){u.speed=u._restoreSpeed;delete u._restoreSpeed;}
+  }
   baseStep();
 };
 const baseRender=render;
