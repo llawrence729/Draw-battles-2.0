@@ -23,6 +23,18 @@
 CATALOG.special.push(
   make('awakened-darsh','Awakened Darsh','⚡',5000,115,72,2.2,70,19)
 );
+const originalAttack=attack;
+attack=function(unit,target){
+  if(unit.id!=='awakened-darsh'||Math.random()>=.10){
+    return originalAttack(unit,target);
+  }
+  const regularDamage=unit.dmg;
+  unit.dmg=regularDamage*2;
+  unit.blackFlashUntil=animTick+60;
+  window.blackFlashUntil=animTick+60;
+  try{return originalAttack(unit,target);}
+  finally{unit.dmg=regularDamage;}
+};
 const previousStep=step;
 step=function(){
   if(running){
@@ -49,6 +61,36 @@ step=function(){
     }
   }
   previousStep();
+};
+const renderBeforeBlackFlash=render;
+render=function(){
+  renderBeforeBlackFlash();
+  for(const unit of units){
+    if(unit.id!=='awakened-darsh'||unit.blackFlashUntil<=animTick) continue;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(unit.x,unit.y,unit.size+8,0,Math.PI*2);
+    ctx.fillStyle='rgba(0,0,0,.78)';
+    ctx.fill();
+    ctx.strokeStyle='#ef2222';
+    ctx.lineWidth=4;
+    ctx.stroke();
+    ctx.restore();
+  }
+  if(window.blackFlashUntil>animTick){
+    ctx.save();
+    ctx.fillStyle='rgba(0,0,0,.72)';
+    ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    ctx.font='900 48px system-ui,sans-serif';
+    ctx.lineWidth=5;
+    ctx.strokeStyle='#dc2626';
+    ctx.strokeText('BLACK FLASH',W/2,H/2);
+    ctx.fillStyle='#fff';
+    ctx.fillText('BLACK FLASH',W/2,H/2);
+    ctx.restore();
+  }
 };
 `;
     html=html.slice(0,insertion)+additions+html.slice(insertion);
