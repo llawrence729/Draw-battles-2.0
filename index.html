@@ -11,105 +11,50 @@
 <p id="load-error" hidden>Battle Draw could not be loaded. Please check your internet connection and reload.</p>
 <script>
 (async()=>{
-  const originalUrl='https://raw.githubusercontent.com/llawrence729/Draw-battles-2.0/8351dc1631c2d37a02d4e4dff24a79168c2ce4d7/index.html';
+  const sourceUrl='https://raw.githubusercontent.com/llawrence729/Draw-battles-2.0/579d66a292ca906b9b0a13d53392dde400e2e201/index.html';
   try{
-    const response=await fetch(originalUrl);
-    if(!response.ok) throw new Error('Original game source unavailable');
+    const response=await fetch(sourceUrl);
+    if(!response.ok) throw new Error('Current game source unavailable');
     let html=await response.text();
+    const marker='renderPalette();';
+    const insertion=html.lastIndexOf(marker);
+    if(insertion<0) throw new Error('Game extension point unavailable');
     const additions=`
-<script>
-CATALOG.special=[
-  make('darsh','Darsh','🇮🇳',2320,260,64,.48,130,42),
-  make('aarav','Aarav','📚',95,32,220,2.4,52,12,{proj:'aplus'}),
-  make('nada','Nada','⚡',70,5,28,5.5,26,10),
-  make('pj','PJ','💣',160,45,12,3.2,30,15),
-  make('paul','Paul','🌀',180,55,30,1.65,46,13),
-  make('gupta-king','Gupta King','👑',5200,190,48,.45,95,31),
-  make('airplane','Airplane','✈️',280,95,100,2.1,62,20,{flying:true}),
-  make('sukuna','Sukuna','👹',50000,90,220,2.8,60,23),
-  make('gojo','Gojo','🕶️',65000,220,260,3.1,60,23),
-  make('cell','Cell','🟢',140,18,28,1.25,44,12)
-];
-projectileStats.aplus=[7.2,32,'#7c3aed',0,false];
-projectileStats.sukunaSlash=[12,24,'#991b1b',0,false];
-projectileStats.sukunaFire=[8,42,'#f97316',0,false];
-projectileStats.gojoBlue=[10,38,'#2563eb',0,false];
-projectileStats.gojoRed=[9,44,'#ef4444',0,false];
-projectileStats.hollowPurple=[8,64,'#7c3aed',0,false];
-const mythicalTab=document.querySelector('.tab[data-cat="mythical"]');
-if(mythicalTab&&!document.querySelector('.tab[data-cat="special"]')){
-  const specialTab=document.createElement('button');specialTab.type='button';specialTab.className='tab';specialTab.dataset.cat='special';specialTab.textContent='Special';mythicalTab.insertAdjacentElement('afterend',specialTab);
-}
-const originalFire=fire;
-fire=function(unit,target){const firstNewProjectile=projectiles.length;originalFire(unit,target);const projectile=projectiles[firstNewProjectile];if(unit.id==='aarav'&&projectile)projectile.label='A+';if(projectile&&unit.nextShotLabel)projectile.label=unit.nextShotLabel;};
-function damageEnemiesInRadius(unit,x,y,radius,damage,burnFrames=0,knockback=0){for(const enemy of units){if(enemy.team===unit.team||enemy.hp<=0)continue;const dx=enemy.x-x,dy=enemy.y-y,distance=Math.hypot(dx,dy);if(distance<=radius){enemy.hp-=damage*(1-distance/radius*.35);if(burnFrames)enemy.burning=Math.max(enemy.burning||0,burnFrames);if(knockback){const force=knockback*(1-distance/radius*.45)/Math.max(1,distance);enemy.x=Math.max(12,Math.min(W-12,enemy.x+dx*force));enemy.y=Math.max(12,Math.min(H-12,enemy.y+dy*force));}}}}
-function sukunaShot(unit,target,label,projectileType){unit.nextShotLabel=label;const previousProjectile=unit.proj;unit.proj=projectileType;fire(unit,target);unit.proj=previousProjectile;unit.nextShotLabel='';}
-const originalAttack=attack;
-attack=function(unit,target){
-  if(unit.id==='pj'){if(unit.exploded)return;unit.exploded=true;explode(unit.x,unit.y,90,170);unit.hp=0;return;}
-  if(unit.id==='airplane'){explode(target.x,target.y,82,unit.dmg);return;}
-  if(unit.id==='sukuna'){unit.facing=target.x>=unit.x?1:-1;unit.sukunaCleaveNext=!unit.sukunaCleaveNext;if(unit.sukunaCleaveNext){sukunaShot(unit,target,'Cleave','sukunaSlash');damageEnemiesInRadius(unit,target.x,target.y,74,115,0,28);spawnParticles(target.x,target.y,'#dc2626',12,4,20);}else{sukunaShot(unit,target,'Dismantle','sukunaSlash');damageEnemiesInRadius(unit,target.x,target.y,42,165);spawnParticles(target.x,target.y,'#7f1d1d',10,3,18);}return;}
-  originalAttack(unit,target);
-};
-function summonGuptaAlly(king,kind){const isTank=kind==='tank',angle=Math.random()*Math.PI*2,distance=king.size+20;const template=isTank?make('gupta-tank','Royal Tank','🛡️',720,78,34,.72,58,19):make('gupta-minion','Little Gupta','👑',240,42,30,1.25,42,12);const x=Math.max(14,Math.min(W-14,king.x+Math.cos(angle)*distance)),y=Math.max(14,Math.min(H-14,king.y+Math.sin(angle)*distance));units.push({...template,x,y,team:king.team,hp:template.hp,maxHp:template.hp,cooldown:0,facing:king.facing||1,burning:0});spawnParticles(x,y,isTank?'#64748b':'#fbbf24',12,3,22);}
-function gojoShot(unit,target,label,projectileType){unit.nextShotLabel=label;const previousProjectile=unit.proj;unit.proj=projectileType;fire(unit,target);unit.proj=previousProjectile;unit.nextShotLabel='';}
-function fireGojoAbility(unit,target,label,type,radius,damage,knockback=0,paralyzeFrames=0){if(!target)return;gojoShot(unit,target,label,type);damageEnemiesInRadius(unit,target.x,target.y,radius,damage,0,knockback);if(paralyzeFrames)for(const enemy of units)if(enemy.team!==unit.team&&enemy.hp>0&&Math.hypot(enemy.x-unit.x,enemy.y-unit.y)<=radius)enemy.paralyzed=Math.max(enemy.paralyzed||0,paralyzeFrames);const color=type==='gojoBlue'?'#38bdf8':type==='gojoRed'?'#ef4444':'#a855f7';spawnParticles(target.x,target.y,color,label==='Hollow Purple'?55:22,label==='Hollow Purple'?11:6,label==='Hollow Purple'?42:26);}
-function splitCell(parent){
-  // Cap family size so a long battle cannot create an unbounded number of units.
-  const family=units.filter(unit=>unit.team===parent.team&&unit.id.startsWith('cell'));
-  if(family.length>=32)return;
-  const remaining=32-family.length;
-  const childCount=Math.min(2,remaining);
-  for(let i=0;i<childCount;i++){
-    const angle=Math.random()*Math.PI*2,offset=parent.size+12;
-    const template=make('cell','Cell','🟢',100,14,28,1.25,44,11);
-    const x=Math.max(12,Math.min(W-12,parent.x+Math.cos(angle)*offset));
-    const y=Math.max(12,Math.min(H-12,parent.y+Math.sin(angle)*offset));
-    units.push({...template,x,y,team:parent.team,hp:template.hp,maxHp:template.hp,cooldown:0,facing:parent.facing||1,burning:0,splitCooldown:420,cellGeneration:(parent.cellGeneration||0)+1});
-    spawnParticles(x,y,'#22c55e',10,2.5,18);
-  }
-  parent.splitCooldown=420;
-}
-const originalStep=step;
+CATALOG.special.push(
+  make('awakened-darsh','Awakened Darsh','⚡',1800,115,72,2.2,70,19)
+);
+const previousStep=step;
 step=function(){
   if(running){
     for(const unit of units){
-      if(unit.hp<=0)continue;
-      if(unit.id==='cell'){
-        unit.splitCooldown=(unit.splitCooldown??420)-1;
-        if(unit.splitCooldown<=0)splitCell(unit);
-      }else if(unit.id==='paul'){
-        unit.teleportCooldown=Math.max(0,(unit.teleportCooldown||0)-1);
-        if(unit.teleportCooldown===0){const target=nearest(units,unit.x,unit.y,other=>other.team!==unit.team&&other.hp>0);if(target){const side=target.facing||(unit.x<target.x?1:-1);unit.x=Math.max(12,Math.min(W-12,target.x-side*(target.size+unit.size+10)));unit.y=Math.max(12,Math.min(H-12,target.y+(Math.random()-.5)*24));unit.teleportCooldown=105;spawnParticles(unit.x,unit.y,'#8b5cf6',14,3,20);}}
-      }else if(unit.id==='gupta-king'){
-        unit.summonCooldown=Math.max(0,(unit.summonCooldown||0)-1);
-        if(unit.summonCooldown===0){const allies=units.filter(other=>other.team===unit.team&&other.id.startsWith('gupta-')&&other.id!=='gupta-king').length;if(allies<10){const kind=unit.nextSummon==='tank'?'tank':'minion';summonGuptaAlly(unit,kind);unit.nextSummon=kind==='tank'?'minion':'tank';}unit.summonCooldown=145;}
-      }else if(unit.id==='sukuna'){
-        unit.fugaCooldown=(unit.fugaCooldown??480)-1;unit.worldSlashCooldown=(unit.worldSlashCooldown??900)-1;unit.domainCooldown=(unit.domainCooldown??900)-1;
-        if(unit.domainFrames>0){unit.domainFrames--;unit.domainPulse=(unit.domainPulse||0)-1;if(unit.domainPulse<=0){const target=nearest(units,unit.x,unit.y,other=>other.team!==unit.team&&other.hp>0);if(target){unit.sukunaCleaveNext=!unit.sukunaCleaveNext;const cleave=unit.sukunaCleaveNext;sukunaShot(unit,target,cleave?'Domain Cleave':'Domain Dismantle','sukunaSlash');damageEnemiesInRadius(unit,target.x,target.y,cleave?88:56,cleave?125:155,0,cleave?32:0);spawnParticles(target.x,target.y,cleave?'#dc2626':'#7f1d1d',8,3,16);}unit.domainPulse=15;}}
-        const target=nearest(units,unit.x,unit.y,other=>other.team!==unit.team&&other.hp>0);if(target&&unit.fugaCooldown<=0){sukunaShot(unit,target,'Fuga','sukunaFire');damageEnemiesInRadius(unit,target.x,target.y,105,260,300);spawnParticles(target.x,target.y,'#f97316',24,6,30);unit.fugaCooldown=480;}if(unit.worldSlashCooldown<=0){const aim=target||{x:unit.x+unit.facing*180,y:unit.y};sukunaShot(unit,aim,'World Cutting Slash','sukunaSlash');damageEnemiesInRadius(unit,aim.x,aim.y,330,1800,0,180);spawnParticles(aim.x,aim.y,'#dc2626',70,12,45);unit.worldSlashCooldown=900;}if(unit.domainCooldown<=0){unit.domainFrames=180;unit.domainPulse=1;unit.domainCooldown=900;spawnParticles(unit.x,unit.y,'#7f1d1d',42,7,40);}
-      }else if(unit.id==='gojo'){
-        unit.blueCooldown=(unit.blueCooldown??180)-1;unit.redCooldown=(unit.redCooldown??300)-1;unit.purpleCooldown=(unit.purpleCooldown??720)-1;unit.teleportCooldown=(unit.teleportCooldown??900)-1;unit.domainCooldown=(unit.domainCooldown??900)-1;if(unit.domainFrames>0)unit.domainFrames--;const target=nearest(units,unit.x,unit.y,other=>other.team!==unit.team&&other.hp>0);if(target&&unit.blueCooldown<=0){fireGojoAbility(unit,target,'Blue','gojoBlue',135,125);unit.blueCooldown=180;}if(target&&unit.redCooldown<=0){fireGojoAbility(unit,target,'Red','gojoRed',145,175,48);unit.redCooldown=300;}if(target&&unit.purpleCooldown<=0){fireGojoAbility(unit,target,'Hollow Purple','hollowPurple',390,6000,360);unit.purpleCooldown=720;}if(unit.teleportCooldown<=0){unit.x=12+Math.random()*Math.max(1,W-24);unit.y=12+Math.random()*Math.max(1,H-24);unit.teleportCooldown=900;spawnParticles(unit.x,unit.y,'#60a5fa',28,7,30);}if(unit.domainCooldown<=0){for(const enemy of units)if(enemy.team!==unit.team&&enemy.hp>0)enemy.paralyzed=Math.max(enemy.paralyzed||0,420);unit.domainFrames=120;unit.domainCooldown=900;spawnParticles(unit.x,unit.y,'#60a5fa',60,9,48);}
+      if(unit.id!=='awakened-darsh'||unit.hp<=0) continue;
+      unit.powerUpTimer=(unit.powerUpTimer||0)+1;
+      if(unit.powerUpTimer>=60){
+        unit.powerUpTimer=0;
+        unit.dmg+=2;
+        unit.speed=Math.min(5.5,unit.speed+.025);
+      }
+      unit.awakenedTeleport=(unit.awakenedTeleport??600)-1;
+      if(unit.awakenedTeleport<=0){
+        unit.x=12+Math.random()*Math.max(1,W-24);
+        unit.y=12+Math.random()*Math.max(1,H-24);
+        unit.awakenedTeleport=600;
+        spawnParticles(unit.x,unit.y,'#a855f7',24,6,28);
       }
     }
   }
-  for(const unit of units){if(unit.id==='gojo'&&unit.hp<unit._lastHp)unit.hp=unit._lastHp-(unit._lastHp-unit.hp)*.25;if(unit.paralyzed>0){unit.paralyzed--;unit._paralysisRestore=unit.speed;unit.speed=0;}else if(unit._paralysisRestore!==undefined){unit.speed=unit._paralysisRestore;delete unit._paralysisRestore;}}
-  originalStep();
-  for(const unit of units)if(unit.id==='gojo')unit._lastHp=unit.hp;
+  previousStep();
 };
-const originalRender=render;
-render=function(){originalRender();for(const unit of units){if((unit.id==='sukuna'&&unit.domainFrames>0)||(unit.id==='gojo'&&unit.domainFrames>0)){ctx.save();ctx.beginPath();ctx.arc(unit.x,unit.y,unit.id==='gojo'?210:245,0,Math.PI*2);ctx.fillStyle=unit.id==='gojo'?'rgba(96,165,250,.12)':'rgba(185,28,28,.10)';ctx.fill();ctx.strokeStyle=unit.id==='gojo'?'rgba(37,99,235,.75)':'rgba(153,27,27,.7)';ctx.lineWidth=3;ctx.setLineDash([8,6]);ctx.stroke();ctx.restore();}}for(const projectile of projectiles){if(!projectile.label)continue;ctx.save();ctx.font=/World Cutting Slash|Hollow Purple/.test(projectile.label)?'bold 19px sans-serif':'bold 12px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineWidth=projectile.label==='Hollow Purple'?8:projectile.label==='World Cutting Slash'?5:3;ctx.strokeStyle='#fff';ctx.strokeText(projectile.label,projectile.x,projectile.y-(projectile.z||0)-9);ctx.fillStyle=projectile.color;ctx.fillText(projectile.label,projectile.x,projectile.y-(projectile.z||0)-9);if(projectile.label==='World Cutting Slash'||projectile.label==='Hollow Purple'){ctx.strokeStyle=projectile.color;ctx.lineWidth=projectile.label==='Hollow Purple'?24:12;ctx.beginPath();ctx.moveTo(projectile.x-65,projectile.y);ctx.lineTo(projectile.x+65,projectile.y);ctx.stroke();}ctx.restore();}};
-const originalExplode=explode;
-explode=function(x,y,radius,damage){for(const unit of units)if(unit.id==='gojo'&&unit.hp>0){const d=Math.hypot(unit.x-x,unit.y-y);if(d<radius)unit.hp+=damage*(1-d/radius)*.75;}originalExplode(x,y,radius,damage);};
-const specialTab=document.querySelector('.tab[data-cat="special"]');
-if(specialTab)specialTab.addEventListener('click',()=>{currentCat='special';document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));specialTab.classList.add('active');renderPalette();});
-renderPalette();
-<\/script>`;
-    const bodyClose=html.lastIndexOf('</body>');
-    if(bodyClose<0) throw new Error('Game document is incomplete');
-    html=html.slice(0,bodyClose)+additions+html.slice(bodyClose);
-    document.open();document.write(html);document.close();
-  }catch(error){document.getElementById('load-status').hidden=true;document.getElementById('load-error').hidden=false;console.error(error);}
+`;
+    html=html.slice(0,insertion)+additions+html.slice(insertion);
+    document.open();
+    document.write(html);
+    document.close();
+  }catch(error){
+    document.getElementById('load-status').hidden=true;
+    document.getElementById('load-error').hidden=false;
+    console.error(error);
+  }
 })();
 </script>
 </body>
