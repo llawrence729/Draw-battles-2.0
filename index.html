@@ -11,111 +11,100 @@
 <p id="load-error" hidden>Battle Draw could not be loaded. Please check your internet connection and reload.</p>
 <script>
 (async()=>{
-  const previousUrl='https://raw.githubusercontent.com/llawrence729/Draw-battles-2.0/83e3feecff7f1690d6bcfc460cee14bc3f983676/index.html';
+  const sourceUrl='https://raw.githubusercontent.com/llawrence729/Draw-battles-2.0/06f33d5a17ee94b87bce33ca00d3782e78722ae8/index.html';
   try{
-    const response=await fetch(previousUrl);
+    const response=await fetch(sourceUrl);
     if(!response.ok) throw new Error('Current game source unavailable');
     let html=await response.text();
-    const marker='renderPalette();';
-    const insertion=html.lastIndexOf(marker);
-    if(insertion<0) throw new Error('Game extension point unavailable');
-    const naoyaAdditions=`
-CATALOG.special.push(
-  make('naoya-zenin','Naoya Zenin','💨',9000,130,90,4.5,9,24)
-);
-const attackBeforeNaoya=attack;
-attack=function(unit,target){
-  if(unit.id!=='naoya-zenin') return attackBeforeNaoya(unit,target);
-  const oldDamage=unit.dmg;
-  if(unit.naoyaDashPhase==='in') unit.dmg=oldDamage*2;
-  try{return attackBeforeNaoya(unit,target);}
-  finally{unit.dmg=oldDamage;}
-};
-const stepBeforeNaoya=step;
+    const naoyaEnhancements=`
+const stepWithNaoyaEnhancements=step;
 step=function(){
-  if(running){
-    for(const unit of units){
-      if(unit.id!=='naoya-zenin'||unit.hp<=0) continue;
-      unit.naoyaBaseSpeed=unit.naoyaBaseSpeed||unit.speed;
-      unit.naoyaGrowthTimer=(unit.naoyaGrowthTimer||0)+1;
-      if(unit.naoyaGrowthTimer>=60){
-        unit.naoyaGrowthTimer=0;
-        unit.naoyaBaseSpeed=Math.min(10,unit.naoyaBaseSpeed+.08);
-      }
-      unit.hp=Math.min(unit.maxHp,unit.hp+Math.max(1,unit.maxHp*.0008));
-      unit.naoyaDashPhase=unit.naoyaDashPhase||'in';
-      unit.naoyaDashTimer=(unit.naoyaDashTimer||0)+1;
-      const phaseLength=unit.naoyaDashPhase==='in'?180:90;
-      if(unit.naoyaDashTimer>=phaseLength){
-        unit.naoyaDashTimer=0;
-        unit.naoyaDashPhase=unit.naoyaDashPhase==='in'?'out':'in';
-        spawnParticles(unit.x,unit.y,'#38bdf8',12,4,18);
-      }
-      unit.naoyaAbilityTimer=(unit.naoyaAbilityTimer??300)-1;
-      if(unit.naoyaAbilityTimer<=0){
-        unit.naoyaAbilityTimer=300;
-        unit.naoyaOrbitTarget=nearest(units,unit.x,unit.y,other=>other.team!==unit.team&&other.hp>0);
-        unit.naoyaOrbitFrames=unit.naoyaOrbitTarget?60:0;
-        unit.naoyaOrbitAngle=Math.atan2(unit.y-(unit.naoyaOrbitTarget?.y??unit.y),unit.x-(unit.naoyaOrbitTarget?.x??unit.x));
-      }
-      unit.naoyaOrbiting=unit.naoyaOrbitFrames>0&&unit.naoyaOrbitTarget&&unit.naoyaOrbitTarget.hp>0;
-      unit.speed=unit.naoyaOrbiting||unit.naoyaDashPhase==='out'?0:(unit.naoyaBaseSpeed+(unit.naoyaDashPhase==='in'?3.5:0));
-      unit.naoyaTrail=unit.naoyaTrail||[];
+  const previousPositions=new Map();
+  if(running) for(const unit of units) if(unit.id==='naoya-zenin'&&unit.hp>0) previousPositions.set(unit,{x:unit.x,y:unit.y});
+  stepWithNaoyaEnhancements();
+  if(!running) return;
+  for(const unit of units){
+    if(unit.id!=='naoya-zenin'||unit.hp<=0) continue;
+    unit.naoyaGrowthTimer=(unit.naoyaGrowthTimer||0)+1;
+    if(unit.naoyaGrowthTimer>=60){
+      unit.naoyaGrowthTimer=0;
+      unit.naoyaGrowthCount=(unit.naoyaGrowthCount||0)+1;
+      unit.dmg*=1.08;
+      const gainedHp=unit.maxHp*.04;
+      unit.maxHp+=gainedHp;
+      unit.hp=Math.min(unit.maxHp,unit.hp+gainedHp*.5);
+      unit.naoyaBaseSpeed=Math.min(10,(unit.naoyaBaseSpeed||unit.speed)+.08);
     }
-  }
-  stepBeforeNaoya();
-  if(running){
-    for(const unit of units){
-      if(unit.id!=='naoya-zenin'||unit.hp<=0) continue;
-      const target=unit.naoyaOrbitTarget;
-      if(unit.naoyaOrbiting&&target&&target.hp>0){
-        unit.naoyaOrbitAngle+=.11;
-        unit.x=Math.max(16,Math.min(W-16,target.x+Math.cos(unit.naoyaOrbitAngle)*84));
-        unit.y=Math.max(16,Math.min(H-16,target.y+Math.sin(unit.naoyaOrbitAngle)*52));
-        unit.naoyaOrbitFrames--;
-        if(unit.naoyaOrbitFrames<=0){
-          target.paralyzed=Math.max(target.paralyzed||0,120);
-          spawnParticles(target.x,target.y,'#38bdf8',24,5,26);
-          unit.naoyaOrbitTarget=null;
-        }
-      }else if(unit.naoyaDashPhase==='out'){
-        const enemy=nearest(units,unit.x,unit.y,other=>other.team!==unit.team&&other.hp>0);
-        if(enemy){
-          unit.naoyaDashAngle=(unit.naoyaDashAngle||0)+.16;
-          const xRadius=Math.min(66,Math.max(18,Math.min(enemy.x-16,W-16-enemy.x)));
-          const yRadius=Math.min(42,Math.max(18,Math.min(enemy.y-16,H-16-enemy.y)));
-          unit.x=Math.max(16,Math.min(W-16,enemy.x+Math.cos(unit.naoyaDashAngle)*xRadius));
-          unit.y=Math.max(16,Math.min(H-16,enemy.y+Math.sin(unit.naoyaDashAngle)*yRadius));
+    if(!unit.naoyaHitCooldowns) unit.naoyaHitCooldowns=new Map();
+    for(const [enemy,timer] of unit.naoyaHitCooldowns){
+      if(timer<=1) unit.naoyaHitCooldowns.delete(enemy);
+      else unit.naoyaHitCooldowns.set(enemy,timer-1);
+    }
+    if(unit.naoyaFrenzyFrames>0){
+      unit.naoyaFrenzyFrames--;
+    }else{
+      unit.naoyaFrenzyCooldown=(unit.naoyaFrenzyCooldown??1800)-1;
+      if(unit.naoyaFrenzyCooldown<=0){
+        unit.naoyaFrenzyFrames=180;
+        unit.naoyaFrenzyCooldown=1800;
+        unit.naoyaWaypoint={x:16+Math.random()*Math.max(1,W-32),y:16+Math.random()*Math.max(1,H-32)};
+        spawnParticles(unit.x,unit.y,'#38bdf8',36,8,36);
+      }
+    }
+    const wasFrenzy=unit.naoyaFrenzyFrames>0;
+    const start=previousPositions.get(unit)||{x:unit.x,y:unit.y};
+    if(wasFrenzy){
+      if(!unit.naoyaWaypoint) unit.naoyaWaypoint={x:16+Math.random()*Math.max(1,W-32),y:16+Math.random()*Math.max(1,H-32)};
+      let dx=unit.naoyaWaypoint.x-unit.x,dy=unit.naoyaWaypoint.y-unit.y,distance=Math.hypot(dx,dy);
+      if(distance<18){
+        unit.naoyaWaypoint={x:16+Math.random()*Math.max(1,W-32),y:16+Math.random()*Math.max(1,H-32)};
+        dx=unit.naoyaWaypoint.x-unit.x;dy=unit.naoyaWaypoint.y-unit.y;distance=Math.hypot(dx,dy);
+      }
+      const runSpeed=26+Math.min(22,(unit.naoyaGrowthCount||0)*.35);
+      if(distance>0){unit.x+=dx/distance*Math.min(runSpeed,distance);unit.y+=dy/distance*Math.min(runSpeed,distance);}
+      unit.x=Math.max(12,Math.min(W-12,unit.x));unit.y=Math.max(12,Math.min(H-12,unit.y));
+      const vx=unit.x-start.x,vy=unit.y-start.y,length2=vx*vx+vy*vy;
+      for(const enemy of units){
+        if(enemy.team===unit.team||enemy.hp<=0||unit.naoyaHitCooldowns.has(enemy)) continue;
+        const t=length2?Math.max(0,Math.min(1,((enemy.x-start.x)*vx+(enemy.y-start.y)*vy)/length2)):0;
+        const nearX=start.x+t*vx,nearY=start.y+t*vy;
+        if(Math.hypot(enemy.x-nearX,enemy.y-nearY)<=unit.size+enemy.size+12){
+          enemy.hp=Math.max(0,enemy.hp-Math.max(600,unit.dmg*8));
+          enemy.paralyzed=Math.max(enemy.paralyzed||0,120);
+          unit.naoyaHitCooldowns.set(enemy,18);
+          spawnParticles(enemy.x,enemy.y,'#38bdf8',20,6,24);
         }
       }
-      if((animTick||0)%2===0){
-        unit.naoyaTrail.push({x:unit.x,y:unit.y});
-        if(unit.naoyaTrail.length>20) unit.naoyaTrail.shift();
+    }else if(unit.naoyaDashPhase==='out'){
+      const enemy=nearest(units,unit.x,unit.y,other=>other.team!==unit.team&&other.hp>0);
+      if(enemy){
+        let dx=unit.x-enemy.x,dy=unit.y-enemy.y,distance=Math.hypot(dx,dy);
+        if(distance<1){dx=-(unit.facing||1);dy=0;distance=1;}
+        const dashDistance=8+Math.min(10,(unit.naoyaGrowthCount||0)*.2);
+        unit.x=Math.max(12,Math.min(W-12,unit.x+dx/distance*dashDistance));
+        unit.y=Math.max(12,Math.min(H-12,unit.y+dy/distance*dashDistance));
       }
+    }
+    if(wasFrenzy||unit.naoyaDashPhase==='out'){
+      unit.naoyaTrail=unit.naoyaTrail||[];
+      unit.naoyaTrail.push({x:unit.x,y:unit.y});
+      if(unit.naoyaTrail.length>24) unit.naoyaTrail.shift();
     }
   }
 };
-const renderBeforeNaoya=render;
+const renderWithNaoyaEnhancements=render;
 render=function(){
-  renderBeforeNaoya();
+  renderWithNaoyaEnhancements();
   for(const unit of units){
-    if(unit.id!=='naoya-zenin'||!unit.naoyaTrail||unit.naoyaTrail.length<2) continue;
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(unit.naoyaTrail[0].x,unit.naoyaTrail[0].y);
-    for(let i=1;i<unit.naoyaTrail.length;i++) ctx.lineTo(unit.naoyaTrail[i].x,unit.naoyaTrail[i].y);
-    ctx.strokeStyle='rgba(56,189,248,.72)';
-    ctx.lineWidth=Math.max(2,unit.size*.35);
-    ctx.lineCap='round';
-    ctx.lineJoin='round';
-    ctx.shadowColor='#38bdf8';
-    ctx.shadowBlur=14;
-    ctx.stroke();
-    ctx.restore();
+    if(unit.id!=='naoya-zenin'||unit.hp<=0||unit.naoyaFrenzyFrames<=0) continue;
+    ctx.save();ctx.beginPath();ctx.arc(unit.x,unit.y,unit.size+12,0,Math.PI*2);
+    ctx.strokeStyle='#38bdf8';ctx.lineWidth=4;ctx.shadowColor='#38bdf8';ctx.shadowBlur=22;ctx.stroke();ctx.restore();
   }
 };
 `;
-    html=html.slice(0,insertion)+naoyaAdditions+html.slice(insertion);
+    const insertion=html.lastIndexOf('\n`;');
+    if(insertion<0) throw new Error('Naoya extension point unavailable');
+    html=html.slice(0,insertion)+'\n'+naoyaEnhancements+html.slice(insertion);
     document.open();
     document.write(html);
     document.close();
