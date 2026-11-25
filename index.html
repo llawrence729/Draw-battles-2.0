@@ -21,7 +21,7 @@
     if(insertion<0) throw new Error('Game extension point unavailable');
     const naoyaAdditions=`
 CATALOG.special.push(
-  make('naoya-zenin','Naoya Zenin','💨',18000,220,160,4.5,9,24)
+  make('naoya-zenin','Naoya Zenin','💨',9000,130,90,4.5,9,24)
 );
 const attackBeforeNaoya=attack;
 attack=function(unit,target){
@@ -51,8 +51,15 @@ step=function(){
         unit.naoyaDashPhase=unit.naoyaDashPhase==='in'?'out':'in';
         spawnParticles(unit.x,unit.y,'#38bdf8',12,4,18);
       }
-      // Let the normal battle movement pull him in; stop it during the manual retreat.
-      unit.speed=unit.naoyaDashPhase==='in'?unit.naoyaBaseSpeed+3.5:0;
+      unit.naoyaAbilityTimer=(unit.naoyaAbilityTimer??300)-1;
+      if(unit.naoyaAbilityTimer<=0){
+        unit.naoyaAbilityTimer=300;
+        unit.naoyaOrbitTarget=nearest(units,unit.x,unit.y,other=>other.team!==unit.team&&other.hp>0);
+        unit.naoyaOrbitFrames=unit.naoyaOrbitTarget?60:0;
+        unit.naoyaOrbitAngle=Math.atan2(unit.y-(unit.naoyaOrbitTarget?.y??unit.y),unit.x-(unit.naoyaOrbitTarget?.x??unit.x));
+      }
+      unit.naoyaOrbiting=unit.naoyaOrbitFrames>0&&unit.naoyaOrbitTarget&&unit.naoyaOrbitTarget.hp>0;
+      unit.speed=unit.naoyaOrbiting||unit.naoyaDashPhase==='out'?0:(unit.naoyaBaseSpeed+(unit.naoyaDashPhase==='in'?3.5:0));
       unit.naoyaTrail=unit.naoyaTrail||[];
     }
   }
@@ -60,13 +67,25 @@ step=function(){
   if(running){
     for(const unit of units){
       if(unit.id!=='naoya-zenin'||unit.hp<=0) continue;
-      if(unit.naoyaDashPhase==='out'){
-        const target=nearest(units,unit.x,unit.y,other=>other.team!==unit.team&&other.hp>0);
-        if(target){
-          const dx=unit.x-target.x,dy=unit.y-target.y,distance=Math.hypot(dx,dy)||1;
-          const retreat=unit.naoyaBaseSpeed+8;
-          unit.x=Math.max(12,Math.min(W-12,unit.x+dx/distance*retreat));
-          unit.y=Math.max(12,Math.min(H-12,unit.y+dy/distance*retreat));
+      const target=unit.naoyaOrbitTarget;
+      if(unit.naoyaOrbiting&&target&&target.hp>0){
+        unit.naoyaOrbitAngle+=.11;
+        unit.x=Math.max(16,Math.min(W-16,target.x+Math.cos(unit.naoyaOrbitAngle)*84));
+        unit.y=Math.max(16,Math.min(H-16,target.y+Math.sin(unit.naoyaOrbitAngle)*52));
+        unit.naoyaOrbitFrames--;
+        if(unit.naoyaOrbitFrames<=0){
+          target.paralyzed=Math.max(target.paralyzed||0,120);
+          spawnParticles(target.x,target.y,'#38bdf8',24,5,26);
+          unit.naoyaOrbitTarget=null;
+        }
+      }else if(unit.naoyaDashPhase==='out'){
+        const enemy=nearest(units,unit.x,unit.y,other=>other.team!==unit.team&&other.hp>0);
+        if(enemy){
+          unit.naoyaDashAngle=(unit.naoyaDashAngle||0)+.16;
+          const xRadius=Math.min(66,Math.max(18,Math.min(enemy.x-16,W-16-enemy.x)));
+          const yRadius=Math.min(42,Math.max(18,Math.min(enemy.y-16,H-16-enemy.y)));
+          unit.x=Math.max(16,Math.min(W-16,enemy.x+Math.cos(unit.naoyaDashAngle)*xRadius));
+          unit.y=Math.max(16,Math.min(H-16,enemy.y+Math.sin(unit.naoyaDashAngle)*yRadius));
         }
       }
       if((animTick||0)%2===0){
