@@ -102,9 +102,53 @@ render=function(){
     ctx.strokeStyle='#38bdf8';ctx.lineWidth=4;ctx.shadowColor='#38bdf8';ctx.shadowBlur=22;ctx.stroke();ctx.restore();
   }
 };
+const fireWithProjectileLabels=fire;
+fire=function(unit,target){
+  const previousCount=projectiles.length;
+  fireWithProjectileLabels(unit,target);
+  const projectile=projectiles[previousCount];
+  if(!projectile) return;
+  if(!projectile.label) projectile.label=unit.nextShotLabel||unit.projectileLabel||unit.name||'Shot';
+  projectile.label=String(projectile.label).slice(0,28);
+  projectile.labelColor=projectile.color||'#374151';
+  projectile.trail=[];
+};
+const stepWithProjectileTrails=step;
+step=function(){
+  stepWithProjectileTrails();
+  for(const projectile of projectiles){
+    if(!projectile.trail) projectile.trail=[];
+    const last=projectile.trail[projectile.trail.length-1];
+    if(!last||Math.hypot(projectile.x-last.x,projectile.y-last.y)>3){
+      projectile.trail.push({x:projectile.x,y:projectile.y});
+      if(projectile.trail.length>5) projectile.trail.shift();
+    }
+  }
+};
+const renderWithProjectileLabels=render;
+render=function(){
+  renderWithProjectileLabels();
+  for(const projectile of projectiles){
+    const lift=projectile.z||0;
+    ctx.save();
+    if(projectile.trail&&projectile.trail.length>1){
+      ctx.beginPath();ctx.moveTo(projectile.trail[0].x,projectile.trail[0].y-lift);
+      for(let i=1;i<projectile.trail.length;i++) ctx.lineTo(projectile.trail[i].x,projectile.trail[i].y-lift);
+      ctx.globalAlpha=.42;ctx.strokeStyle=projectile.labelColor||'#4b5563';ctx.lineWidth=3;ctx.lineCap='round';ctx.stroke();
+    }
+    const text=projectile.label||'Shot';
+    ctx.globalAlpha=1;ctx.font='bold 11px system-ui, sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    const width=Math.min(150,ctx.measureText(text).width+12),height=18;
+    const labelX=projectile.x,labelY=projectile.y-lift-15;
+    ctx.fillStyle='rgba(255,255,255,.94)';ctx.strokeStyle=projectile.labelColor||'#4b5563';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.roundRect(labelX-width/2,labelY-height/2,width,height,7);ctx.fill();ctx.stroke();
+    ctx.fillStyle='#111827';ctx.fillText(text,labelX,labelY, width-8);
+    ctx.restore();
+  }
+};
 `;
     const insertion=html.lastIndexOf('\n`;');
-    if(insertion<0) throw new Error('Naoya extension point unavailable');
+    if(insertion<0) throw new Error('Game extension point unavailable');
     html=html.slice(0,insertion)+'\n'+naoyaEnhancements+html.slice(insertion);
     document.open();
     document.write(html);
