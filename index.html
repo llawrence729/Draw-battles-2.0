@@ -21,13 +21,13 @@
     if(insertion<0) throw new Error('Game extension point unavailable');
     const naoyaAdditions=`
 CATALOG.special.push(
-  make('naoya-zenin','Naoya Zenin','💨',18000,100000,1200,420,9,24)
+  make('naoya-zenin','Naoya Zenin','💨',18000,220,160,4.5,9,24)
 );
 const attackBeforeNaoya=attack;
 attack=function(unit,target){
   if(unit.id!=='naoya-zenin') return attackBeforeNaoya(unit,target);
   const oldDamage=unit.dmg;
-  if(unit.naoyaDashPhase==='in') unit.dmg=Math.min(1e9,oldDamage*2);
+  if(unit.naoyaDashPhase==='in') unit.dmg=oldDamage*2;
   try{return attackBeforeNaoya(unit,target);}
   finally{unit.dmg=oldDamage;}
 };
@@ -40,7 +40,7 @@ step=function(){
       unit.naoyaGrowthTimer=(unit.naoyaGrowthTimer||0)+1;
       if(unit.naoyaGrowthTimer>=60){
         unit.naoyaGrowthTimer=0;
-        unit.naoyaBaseSpeed=Math.min(24,unit.naoyaBaseSpeed+.08);
+        unit.naoyaBaseSpeed=Math.min(10,unit.naoyaBaseSpeed+.08);
       }
       unit.hp=Math.min(unit.maxHp,unit.hp+Math.max(1,unit.maxHp*.0008));
       unit.naoyaDashPhase=unit.naoyaDashPhase||'in';
@@ -51,7 +51,8 @@ step=function(){
         unit.naoyaDashPhase=unit.naoyaDashPhase==='in'?'out':'in';
         spawnParticles(unit.x,unit.y,'#38bdf8',12,4,18);
       }
-      unit.speed=unit.naoyaBaseSpeed+(unit.naoyaDashPhase==='in'?10:0);
+      // Let the normal battle movement pull him in; stop it during the manual retreat.
+      unit.speed=unit.naoyaDashPhase==='in'?unit.naoyaBaseSpeed+3.5:0;
       unit.naoyaTrail=unit.naoyaTrail||[];
     }
   }
@@ -63,7 +64,7 @@ step=function(){
         const target=nearest(units,unit.x,unit.y,other=>other.team!==unit.team&&other.hp>0);
         if(target){
           const dx=unit.x-target.x,dy=unit.y-target.y,distance=Math.hypot(dx,dy)||1;
-          const retreat=unit.naoyaBaseSpeed+10;
+          const retreat=unit.naoyaBaseSpeed+8;
           unit.x=Math.max(12,Math.min(W-12,unit.x+dx/distance*retreat));
           unit.y=Math.max(12,Math.min(H-12,unit.y+dy/distance*retreat));
         }
