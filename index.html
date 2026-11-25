@@ -30,7 +30,7 @@ CATALOG.special=[
   make('gojo','Gojo','🕶️',65000,220,260,3.1,60,23),
   make('cell','Cell','🟢',140,18,28,1.25,44,12),
   make('awakened-darsh','Awakened Darsh','⚡',5000,115,72,2.2,70,19),
-  make('true-aarav','True Aarav','📚',1200,80,240,1.8,48,16,{proj:'aplus'})
+  make('true-aarav','True Aarav','📚',2400,80,240,1.8,48,16,{proj:'aplus'})
 ];
 projectileStats.aplus=[7.2,32,'#7c3aed',0,false];
 projectileStats.sukunaSlash=[12,24,'#991b1b',0,false];
@@ -61,7 +61,7 @@ const baseStep=step;
 step=function(){
   if(running){
     for(const u of units){if(u.hp<=0)continue;
-      if(u.id==='cell'){u.splitTimer=(u.splitTimer??420)-1;if(u.splitTimer<=0){const count=units.filter(v=>v.team===u.team&&v.id==='cell').length;if(count<32){for(let i=0;i<Math.min(2,32-count);i++){const a=Math.random()*Math.PI*2,t=make('cell','Cell','🟢',100,14,28,1.25,44,11);units.push({...t,x:Math.max(12,Math.min(W-12,u.x+Math.cos(a)*(u.size+12))),y:Math.max(12,Math.min(H-12,u.y+Math.sin(a)*(u.size+12))),team:u.team,hp:t.hp,maxHp:t.hp,cooldown:0,burning:0,splitTimer:420});}}u.splitTimer=420;}}
+      if(u.id==='cell'){u.splitTimer=(u.splitTimer??120)-1;if(u.splitTimer<=0){const count=units.filter(v=>v.team===u.team&&v.id==='cell').length;if(count<32){for(let i=0;i<Math.min(2,32-count);i++){const a=Math.random()*Math.PI*2,t=make('cell','Cell','🟢',100,14,28,1.25,44,11);units.push({...t,x:Math.max(12,Math.min(W-12,u.x+Math.cos(a)*(u.size+12))),y:Math.max(12,Math.min(H-12,u.y+Math.sin(a)*(u.size+12))),team:u.team,hp:t.hp,maxHp:t.hp,cooldown:0,burning:0,splitTimer:120});}}u.splitTimer=120;}}
       if(u.id==='paul'){u.teleportTimer=(u.teleportTimer??105)-1;if(u.teleportTimer<=0){const t=nearest(units,u.x,u.y,v=>v.team!==u.team&&v.hp>0);if(t){u.x=Math.max(12,Math.min(W-12,t.x+(u.x<t.x?-1:1)*(t.size+u.size+10)));u.y=Math.max(12,Math.min(H-12,t.y+(Math.random()-.5)*24));spawnParticles(u.x,u.y,'#8b5cf6',14,3,20);}u.teleportTimer=105;}}
       if(u.id==='gupta-king'){u.summonTimer=(u.summonTimer??145)-1;if(u.summonTimer<=0){if(units.filter(v=>v.team===u.team&&v.id.startsWith('gupta-')&&v.id!=='gupta-king').length<10)summonGupta(u);u.summonTimer=145;}}
       if(u.id==='sukuna'){
@@ -86,10 +86,8 @@ step=function(){
     }
   }
   for(const u of units){
-    if(u.id==='awakened-darsh'){
-      u.awakenedBaseSpeed=(u.awakenedBaseSpeed??u.speed)+(u.growth||0)*.05;
-      if(u.paralyzed>0){u.speed=0;}else{u.speed=u.awakenedBaseSpeed;}
-    }else if(u.paralyzed>0){u.paralyzed--;u._restoreSpeed=u.speed;u.speed=0;}else if(u._restoreSpeed!==undefined){u.speed=u._restoreSpeed;delete u._restoreSpeed;}
+    if(u.id==='awakened-darsh'){u.awakenedBaseSpeed=(u.awakenedBaseSpeed??u.speed)+(u.growth||0)*.05;if(u.paralyzed>0){u.speed=0;}else{u.speed=u.awakenedBaseSpeed;}}
+    else if(u.paralyzed>0){u.paralyzed--;u._restoreSpeed=u.speed;u.speed=0;}else if(u._restoreSpeed!==undefined){u.speed=u._restoreSpeed;delete u._restoreSpeed;}
   }
   baseStep();
 };
