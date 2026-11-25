@@ -17,6 +17,7 @@
     if(!response.ok) throw new Error('Current game source unavailable');
     let html=await response.text();
     const naoyaEnhancements=`
+CATALOG.special.push(make('key','Key','🔑',4200,680,80,20,4,24));
 const stepWithNaoyaEnhancements=step;
 step=function(){
   const previousPositions=new Map();
